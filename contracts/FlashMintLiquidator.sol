@@ -44,9 +44,8 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
     );
 
 
-
-
     IMorpho public immutable morpho;
+    ICToken public immutable cDai;
     ISwapRouter public immutable uniswapV3Router;
 
     address[] liquidators;
@@ -55,10 +54,12 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
 
     constructor (
         IERC3156FlashLender lender_,
-        IMorpho morpho_
+        IMorpho morpho_,
+        IERC20 cDai_
     ) public {
         lender = lender_;
         morpho = morpho_;
+        cDai = cDai_;
         liquidators.push(msg.sender);
     }
 
@@ -123,6 +124,26 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
             }
         }
 
+        IComptroller comptroller = IComptroller(morpho.comptroller());
+        ICompoundOracle oracle = ICompoundOracle(comptroller.oracle());
+        uint256 daiPrice = oracle.getUnderlyingPrice(cDai);
+        uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenBorrowedAddress);
+        uint256 daiToFlashLoans = _repayAmount.mul(borrowedTokenPrice).div(daiPrice);
+        IERC20 dai = IERC20(cDai.underlying());
+        uint256 fee = lender.flashFee(dai, daiToFlashLoans);
+        IERC20(dai).approve(address(lender), daiToFlashLoans + fee);
+
+
+        bytes memory data = abi.encode(
+            _poolTokenBorrowedAddress,
+            _poolTokenCollateralAddress,
+            _borrower,
+            _repayAmount,
+            daiPrice,
+            borrowedTokenPrice // transfer the price to no recompute it
+        );
+        lender.flashLoan(this, dai, daiToFlashLoans, data);
+
     }
 
 
@@ -137,27 +158,13 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
     }
 
 
-    function deposit(address _underlyingAddress, uint256 _amount) {
+    function deposit(address _underlyingAddress, uint256 _amount) external {
         ERC20(_underlyingAddress).safeTransferFrom(msg.sender, address(this), _amount);
     }
 
-    function withdraw(address _underlyingAddress, address _receiver, uint256 _amount ) onlyOwner {
+    function withdraw(address _underlyingAddress, address _receiver, uint256 _amount ) external onlyOwner {
         ERC20(_underlyingAddress).safeTransfer(_receiver, _amount);
         emit Withdrawn(msg.sender, _receiver, _underlyingAddress, _amount);
     }
-
-    /// @dev Initiate a flash loan
-    function flashBorrow(
-        address token,
-        uint256 amount
-    ) public {
-        bytes memory data = abi.encode(Action.NORMAL);
-        uint256 _allowance = IERC20(token).allowance(address(this), address(lender));
-        uint256 _fee = lender.flashFee(token, amount);
-        uint256 _repayment = amount + _fee;
-        IERC20(token).approve(address(lender), _allowance + _repayment);
-        lender.flashLoan(this, token, amount, data);
-    }
-
 
 }
