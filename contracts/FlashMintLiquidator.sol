@@ -28,11 +28,21 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         bool usingFlashLoans
     );
 
+    event LiquidatorAdded(
+        address _liquidatorAdded
+    );
+
+    event LiquidatorRemoved(
+        address _liquidatorRemoved
+    );
+
+
+
 
     IMorpho public immutable morpho;
     ISwapRouter public immutable uniswapV3Router;
 
-
+    address[] liquidators;
 
     IERC3156FlashLender lender;
 
@@ -42,6 +52,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
     ) public {
         lender = lender_;
         morpho = morpho_;
+        liquidators.push(msg.sender);
     }
 
     /// @dev ERC-3156 Flash loan callback
@@ -79,14 +90,16 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         uint256 _repayAmount,
         bool _stakeTokens
     ) external nonReentrant {
-        bool usingFlashLoan;
         uint256 amountSeized;
-        if(_stakeTokens) {
+
+        ERC20 collateralUnderlying = ERC20(ICToken(_poolTokenCollateralAddress).underlying());
+        uint256 collateralBalanceBefore = collateralUnderlying.balanceOf(address(this));
+
+        if(_stakeTokens && liquidators[msg.sender] != address(0)) {
+            // only for setted liquidators
             uint256 balanceBefore = ERC20(ICToken(_poolTokenBorrowedAddress).underlying()).balanceOf(address(this));
             if(balanceBefore >= _repayAmount) {
-                ERC20 collateralUnderlying = ERC20(ICToken(_poolTokenCollateralAddress).underlying());
                 ERC20 borrowedUnderlying = ERC20(ICToken(_poolTokenBorrowedAddress).underlying());
-                uint256 collateralBalanceBefore = collateralUnderlying.balanceOf(address(this));
                 borrowedUnderlying.safeApprove(address(morpho), _repayAmount);
                 morpho.liquidate(_poolTokenBorrowedAddress, _poolTokenCollateralAddress, _borrower, _repayAmount);
                 amountSeized = collateralUnderlying.balanceOf(address(this)) - collateralBalanceBefore;
@@ -102,6 +115,18 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
                 return;
             }
         }
+
+    }
+
+
+    function addLiquidator(address _newLiquidator) external onlyOwner {
+        liquidators.push(_newLiquidator);
+        emit LiquidatorAdded(_newLiquidator);
+    }
+
+    function removeLiquidator(address _liquidatorToRemove) external onlyOwner {
+        delete liquidators [_liquidatorToRemove];
+        emit LiquidatorRemoved(_newLiquidator);
     }
 
 
