@@ -47,7 +47,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
     IMorpho public immutable morpho;
     ICToken public immutable cDai;
     ISwapRouter public immutable uniswapV3Router;
-
+    uint256 public constant BASIS_POINTS = 10000;
     address[] liquidators;
 
     IERC3156FlashLender lender;
@@ -63,33 +63,6 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         liquidators.push(msg.sender);
     }
 
-    /// @dev ERC-3156 Flash loan callback
-    function onFlashLoan(
-        address initiator,
-        address token,
-        uint256 amount,
-        uint256 fee,
-        bytes calldata data
-    ) external override returns (bytes32) {
-        require(
-            msg.sender == address(lender),
-            "FlashBorrower: Untrusted lender"
-        );
-        require(
-            initiator == address(this),
-            "FlashBorrower: Untrusted loan initiator"
-        );
-        (Action action) = abi.decode(data, (Action));
-        if (action == Action.NORMAL) {
-            require(IERC20(token).balanceOf(address(this)) >= amount);
-            // make a profitable trade here
-            IERC20(token).transfer(initiator, amount + fee);
-        } else if (action == Action.OTHER) {
-            // do another
-        }
-        return keccak256("ERC3156FlashBorrower.onFlashLoan");
-    }
-
 
     function liquidate(
         address _poolTokenBorrowedAddress,
@@ -99,7 +72,6 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         bool _stakeTokens
     ) external nonReentrant {
         uint256 amountSeized;
-
         ERC20 collateralUnderlying = ERC20(ICToken(_poolTokenCollateralAddress).underlying());
         uint256 collateralBalanceBefore = collateralUnderlying.balanceOf(address(this));
 
@@ -137,6 +109,8 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         bytes memory data = abi.encode(
             _poolTokenBorrowedAddress,
             _poolTokenCollateralAddress,
+            _underlyingTokenBorrowedAddress,
+            _underlyingTokenCollateralAddress,
             _borrower,
             _repayAmount,
             daiPrice,
@@ -145,6 +119,87 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         lender.flashLoan(this, dai, daiToFlashLoans, data);
 
     }
+
+    /// @dev ERC-3156 Flash loan callback
+    function onFlashLoan(
+        address initiator,
+        address token,
+        uint256 amount,
+        uint256 fee,
+        bytes calldata data
+    ) external override returns (bytes32) {
+        require(
+            msg.sender == address(lender),
+            "FlashBorrower: Untrusted lender"
+        );
+        require(
+            initiator == address(this),
+            "FlashBorrower: Untrusted loan initiator"
+        );
+        (
+        address _poolTokenBorrowedAddress,
+        address _poolTokenCollateralAddress,
+        address _underlyingTokenBorrowedAddress,
+        address _underlyingTokenCollateralAddress,
+        address _borrower,
+        uint256 _repayAmount,
+        uint256 _daiPrice,
+        uint256 _borrowedTokenPrice
+        ) = abi.decode(data, (address,address,address,address,address,uint256,uint256,uint256));
+
+        if(token != _underlyingTokenBorrowedAddress) {
+            IERC20(token).safeApprove(address(uniswapV3Router, amount));
+
+            uint amountOutMinimumWithSlippage = _repayAmount * (BASIS_POINTS - 100) / BASIS_POINTS;
+
+            ISwapRouter.ExactInputSingleParams memory params =
+            ISwapRouter.ExactInputSingleParams({
+            tokenIn: token,
+            tokenOut: _underlyingTokenBorrowedAddress,
+            fee: poolFee,
+            recipient: msg.sender,
+            deadline: block.timestamp,
+            amountIn: amount,
+            amountOutMinimum: amountOutMinimumWithSlippage,
+            sqrtPriceLimitX96: 0
+            });
+            uint256 swapped = uniswapV3Router.exactInputSingle(params);
+            _repayAmount =  swapped > _repayAmount ? _repayAmount : swapped;// do not repay too much
+            if(swapped > _repayAmount) {
+                // retrieve the over swapped tokens
+                ERC20(_underlyingTokenBorrowedAddress).safeTransfer(initiator, swapped - _repayAmount);
+            } else {
+                // limit the repay amount to the amount swapped
+                _repayAmount = swapped;
+            }
+        }
+        IERC20(_underlyingTokenBorrowedAddress).approve(address(morpho), _repayAmount);
+        uint256 balanceBefore = IERC20(_underlyingTokenCollateralAddress).balanceOf(address(this));
+        morpho.liquidate(_poolTokenBorrowedAddress, _poolTokenCollateralAddress, _borrower, toRepay);
+        uint256 seized = IERC20(_underlyingTokenCollateralAddress).balanceOf(address(this)) - balanceBefore;
+        uint256 collateralSwapped;
+        if(_underlyingTokenCollateralAddress != token) {
+            IERC20(_underlyingTokenCollateralAddress).safeApprove(address(uniswapV3Router), seized);
+            ISwapRouter.ExactOutputSingleParams memory outputParams =
+                ISwapRouter.ExactOutputSingleParams({
+                    tokenIn: _underlyingTokenCollateralAddress,
+                    tokenOut: token,
+                    fee: poolFee,
+                    recipient: msg.sender,
+                    deadline: block.timestamp,
+                    amountOut: amount + fee,
+                    amountInMaximum: seized,
+                    sqrtPriceLimitX96: 0
+                });
+            collateralSwapped = swapRouter.exactOutputSingle(params);
+        }
+        uint256 bonus = seized - amountIn;
+        IERC20(_underlyingTokenCollateralAddress).safeTransfer(initiator, bonus);
+
+        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+    }
+
+
 
 
     function addLiquidator(address _newLiquidator) external onlyOwner {
