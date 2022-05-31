@@ -19,21 +19,28 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
     /// EVENTS ///
 
     event Liquidated(
-        address indexed _liquidator,
-        address _borrower,
-        address indexed _poolTokenBorrowedAddress,
-        address indexed _poolTokenCollateralAddress,
+        address indexed liquidator,
+        address borrower,
+        address indexed poolTokenBorrowedAddress,
+        address indexed poolTokenCollateralAddress,
         uint256 amount,
         uint256 seized,
         bool usingFlashLoans
     );
 
     event LiquidatorAdded(
-        address _liquidatorAdded
+        address indexed _liquidatorAdded
     );
 
     event LiquidatorRemoved(
-        address _liquidatorRemoved
+        address indexed _liquidatorRemoved
+    );
+
+    event Withdrawn(
+        address indexed sender,
+        address indexed receiver,
+        address indexed underlyingAddress,
+        uint256 amount
     );
 
 
@@ -129,6 +136,15 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
         emit LiquidatorRemoved(_newLiquidator);
     }
 
+
+    function deposit(address _underlyingAddress, uint256 _amount) {
+        ERC20(_underlyingAddress).safeTransferFrom(msg.sender, address(this), _amount);
+    }
+
+    function withdraw(address _underlyingAddress, address _receiver, uint256 _amount ) onlyOwner {
+        ERC20(_underlyingAddress).safeTransfer(_receiver, _amount);
+        emit Withdrawn(msg.sender, _receiver, _underlyingAddress, _amount);
+    }
 
     /// @dev Initiate a flash loan
     function flashBorrow(
