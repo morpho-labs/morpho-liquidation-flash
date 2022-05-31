@@ -2,22 +2,46 @@ pragma solidity 0.8.13;
 
 import "./interface/IERC3156FlashLender.sol";
 import "./interface/IERC3156FlashBorrower.sol";
+import "./interface/ICompound.sol";
+import "./interface/morpho/IMorpho.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
 
+import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+
 contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
     using SafeTransferLib for ERC20;
+    using CompoundMath for uint256;
 
-    enum Action {NORMAL, OTHER}
+    /// EVENTS ///
+
+    event Liquidated(
+        address indexed _liquidator,
+        address _borrower,
+        address indexed _poolTokenBorrowedAddress,
+        address indexed _poolTokenCollateralAddress,
+        uint256 amount,
+        uint256 seized,
+        bool usingFlashLoans
+    );
+
+
+    IMorpho public immutable morpho;
+    ISwapRouter public immutable uniswapV3Router;
+
+
 
     IERC3156FlashLender lender;
 
     constructor (
-        IERC3156FlashLender lender_
+        IERC3156FlashLender lender_,
+        IMorpho morpho_
     ) public {
         lender = lender_;
+        morpho = morpho_;
     }
 
     /// @dev ERC-3156 Flash loan callback
@@ -49,12 +73,38 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable {
 
 
     function liquidate(
-    address _poolTokenBorrowedAddress,
-    address _poolTokenCollateralAddress,
-    address _borrower,
-    uint256 _amount,
-    address _stakeTokens
-    )
+        address _poolTokenBorrowedAddress,
+        address _poolTokenCollateralAddress,
+        address _borrower,
+        uint256 _repayAmount,
+        bool _stakeTokens
+    ) external nonReentrant {
+        bool usingFlashLoan;
+        uint256 amountSeized;
+        if(_stakeTokens) {
+            uint256 balanceBefore = ERC20(ICToken(_poolTokenBorrowedAddress).underlying()).balanceOf(address(this));
+            if(balanceBefore >= _repayAmount) {
+                ERC20 collateralUnderlying = ERC20(ICToken(_poolTokenCollateralAddress).underlying());
+                ERC20 borrowedUnderlying = ERC20(ICToken(_poolTokenBorrowedAddress).underlying());
+                uint256 collateralBalanceBefore = collateralUnderlying.balanceOf(address(this));
+                borrowedUnderlying.safeApprove(address(morpho), _repayAmount);
+                morpho.liquidate(_poolTokenBorrowedAddress, _poolTokenCollateralAddress, _borrower, _repayAmount);
+                amountSeized = collateralUnderlying.balanceOf(address(this)) - collateralBalanceBefore;
+                emit Liquidated(
+                    msg.sender,
+                    _borrower,
+                    _poolTokenBorrowedAddress,
+                    _poolTokenCollateralAddress,
+                    _repayAmount,
+                    amountSeized,
+                    false
+                );
+                return;
+            }
+        }
+    }
+
+
     /// @dev Initiate a flash loan
     function flashBorrow(
         address token,
