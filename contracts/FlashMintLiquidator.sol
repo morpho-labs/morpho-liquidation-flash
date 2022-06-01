@@ -147,9 +147,9 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             _borrower,
             _repayAmount
         );
-        uint256 balanceBefore = liquidateParams.borrowedUnderlying.balanceOf(address(this));
+        uint256 balanceBefore = liquidateParams.collateralUnderlying.balanceOf(address(this));
         lender.flashLoan(this, address(dai), daiToFlashLoans, data);
-        liquidateParams.amountSeized = liquidateParams.borrowedUnderlying.balanceOf(address(this)) - balanceBefore;
+        liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
         emit Liquidated(
             msg.sender,
             _borrower,
