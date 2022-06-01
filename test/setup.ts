@@ -1,5 +1,6 @@
 import { BigNumber, Contract, Signer, utils } from "ethers";
 import hre, { ethers } from "hardhat";
+import { parseUnits } from "ethers/lib/utils";
 const ERC20Abi = require("../abis/ERC20.json");
 export const config = {
   morpho: "0x8888882f8f843896699869179fB6E4f7e3B58888",
@@ -25,7 +26,57 @@ export const config = {
     },
   },
 };
+export const setupCompound = async (morpho: Contract, signer: Signer) => {
+  const markets: string[] = await morpho.getAllMarkets();
 
+  const comptrollerAddress = await morpho.comptroller();
+  const comptroller = await ethers.getContractAt(
+    require("../abis/Comptroller.json"),
+    comptrollerAddress,
+    signer
+  );
+
+  const Oracle = await ethers.getContractFactory("SimplePriceOracle");
+  const oracle = await Oracle.deploy();
+  await oracle.deployed();
+
+  const realOracle = new Contract(
+    // @ts-ignore
+    await comptroller.oracle(),
+    require("../abis/Oracle.json"),
+    signer
+  );
+  await Promise.all(
+    markets.map(async (marketAddress) => {
+      await oracle.setUnderlyingPrice(
+        marketAddress,
+        await realOracle.getUnderlyingPrice(marketAddress)
+      );
+    })
+  );
+
+  await oracle.setUnderlyingPrice(
+    config.tokens.dai.cToken,
+    parseUnits("1", 18 * 2 - 18)
+  );
+  await oracle.setUnderlyingPrice(
+    config.tokens.usdt.cToken,
+    parseUnits("1", 18 * 2 - 18)
+  );
+  await oracle.setUnderlyingPrice(
+    config.tokens.usdc.cToken,
+    parseUnits("1", 18 * 2 - 6)
+  );
+  // @ts-ignore
+  const adminAddress = await comptroller.admin();
+  await hre.network.provider.send("hardhat_impersonateAccount", [adminAddress]);
+  await hre.network.provider.send("hardhat_setBalance", [
+    adminAddress,
+    ethers.utils.parseEther("10").toHexString(),
+  ]);
+  const admin = await ethers.getSigner(adminAddress);
+  return { comptroller, oracle: oracle as Contract, admin };
+};
 export const getTokens = async (
   signerAddress: string,
   signerType: string,
@@ -73,10 +124,10 @@ export const getTokens = async (
       if (signerType === "whale") {
         await token
           .connect(signerAccount)
-          //@ts-ignore
+          // @ts-ignore
           .transfer(signer.getAddress(), amount);
       } else {
-        //@ts-ignore
+        // @ts-ignore
         await token.mint(signer.getAddress(), amount, { from: signerAddress });
       }
     })
