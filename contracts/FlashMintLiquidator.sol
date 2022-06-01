@@ -14,7 +14,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
 
-import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 
 contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard {
     //using SafeTransferLib for IERC20;
@@ -85,7 +85,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         ISwapRouter uniswapV3Router_,
         IMorpho morpho_,
         ICToken cDai_
-    ) public {
+    ) {
         lender = lender_;
         morpho = morpho_;
         cDai = cDai_;
