@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: GNU AGPLv3
 pragma solidity 0.8.13;
 
-import "./libraries/CompoundMath.sol";
+import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
 
 import "./interface/IERC3156FlashLender.sol";
 import "./interface/IERC3156FlashBorrower.sol";
-import "./interface/ICompound.sol";
-import "./interface/morpho/IMorpho.sol";
+import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
+import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -122,7 +122,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         IERC20 dai;
         uint256 daiToFlashLoans;
         {
-            ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller().oracle());
+            ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
             uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
             uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenBorrowedAddress);
             daiToFlashLoans = _repayAmount.mul(borrowedTokenPrice).div(daiPrice);
