@@ -106,7 +106,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             if(liquidateParams.borrowedTokenBalanceBefore >= _repayAmount) {
                 liquidateParams.borrowedUnderlying.safeApprove(address(morpho), _repayAmount);
                 morpho.liquidate(_poolTokenBorrowedAddress, _poolTokenCollateralAddress, _borrower, _repayAmount);
-                liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - liquidateParams.borrowedTokenBalanceBefore;
+                liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - liquidateParams.collateralBalanceBefore;
                 emit Liquidated(
                     msg.sender,
                     _borrower,
@@ -122,8 +122,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         IERC20 dai;
         uint256 daiToFlashLoans;
         {
-            IComptroller comptroller = IComptroller(morpho.comptroller());
-            ICompoundOracle oracle = ICompoundOracle(comptroller.oracle());
+            ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller().oracle());
             uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
             uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenBorrowedAddress);
             daiToFlashLoans = _repayAmount.mul(borrowedTokenPrice).div(daiPrice);
@@ -224,7 +223,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
                     tokenIn: flashLoansParams._underlyingTokenCollateralAddress,
                     tokenOut: token,
                     fee: poolFee,
-                    recipient: msg.sender,
+                    recipient: address(this),
                     deadline: block.timestamp,
                     amountOut: amount + fee,
                     amountInMaximum: seized,
