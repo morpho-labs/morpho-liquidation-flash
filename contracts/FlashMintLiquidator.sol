@@ -223,7 +223,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
 
         uint256 balanceBefore = IERC20(flashLoansParams._underlyingTokenCollateralAddress).balanceOf(address(this));
 
-        IERC20(flashLoansParams._underlyingTokenBorrowedAddress).approve(address(morpho), flashLoansParams._repayAmount);
+        IERC20(flashLoansParams._underlyingTokenBorrowedAddress).safeApprove(address(morpho), flashLoansParams._repayAmount);
         morpho.liquidate(flashLoansParams._poolTokenBorrowedAddress, flashLoansParams._poolTokenCollateralAddress, flashLoansParams._borrower, flashLoansParams._repayAmount);
 
         flashLoansParams.seized = IERC20(flashLoansParams._underlyingTokenCollateralAddress).balanceOf(address(this)) - balanceBefore;
