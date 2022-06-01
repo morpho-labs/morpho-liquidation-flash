@@ -150,16 +150,89 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
-    await flashLiquidator
-      .connect(liquidator)
-      .liquidate(
-        cUsdcToken.address,
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          cUsdcToken.address,
+          cDaiToken.address,
+          borrowerAddress,
+          toLiquidate,
+          true
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
+
+    const collateralBalanceAfter = await daiToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+  });
+
+  it("Should liquidate a user with a flash loan and stake bonus tokens", async () => {
+    const [borrower] = accounts;
+    const borrowerAddress = await borrower.getAddress();
+    const toSupply = parseUnits("10");
+    await daiToken.connect(borrower).approve(morpho.address, toSupply);
+
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
         cDaiToken.address,
         borrowerAddress,
-        toLiquidate,
-        true
+        toSupply
       );
 
+    const { collateralFactorMantissa } = await comptroller.markets(
+      cDaiToken.address
+    );
+
+    const { onPool, inP2P } = await morpho.supplyBalanceInOf(
+      cDaiToken.address,
+      borrowerAddress
+    );
+    const poolIndex = await cDaiToken.exchangeRateStored();
+    const p2pIndex = await morpho.p2pSupplyIndex(cDaiToken.address);
+
+    // price is 1/1 an
+    const toBorrow = onPool
+      .mul(poolIndex)
+      .add(inP2P.mul(p2pIndex))
+      .mul(collateralFactorMantissa)
+      .div(pow10(18 * 3 - 6));
+
+    console.log("Start borrow", toBorrow.toString());
+    await morpho
+      .connect(borrower)
+      ["borrow(address,uint256)"](cUsdcToken.address, toBorrow);
+
+    await oracle.setUnderlyingPrice(
+      cDaiToken.address,
+      parseUnits("0.95", 18 * 2 - 18)
+    );
+    // Mine block
+
+    await hre.network.provider.send("evm_mine", []);
+
+    const toLiquidate = toBorrow.div(2);
+
+    console.log("fill liquidator contract");
+
+    console.log("liquidate user");
+    const collateralBalanceBefore = await daiToken.balanceOf(
+      flashLiquidator.address
+    );
+
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          cUsdcToken.address,
+          cDaiToken.address,
+          borrowerAddress,
+          toLiquidate,
+          true
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await daiToken.balanceOf(
       flashLiquidator.address
     );
