@@ -1,0 +1,37 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  morpho-positions-notifier
+
+  Sample SAM Template for morpho-positions-notifier
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 300
+
+Resources:
+  SlackNotifierFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: cron(0 8 * * ? *)
+            Enabled: True
+    Metadata:
+      DockerTag: nodejs14.x-v1
+      DockerContext: ./slack-notifier
+      Dockerfile: Dockerfile
+
+Outputs:
+  SlackNotifierFunction:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt SlackNotifierFunction.Arn
+  SlackNotifierFunctionFunctionIamRole:
+    Description: "Implicit IAM Role created for Hello World function"
+    Value: !GetAtt SlackNotifierFunctionRole.Arn
