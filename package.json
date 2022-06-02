@@ -5,6 +5,9 @@
   "repository": "git@github.com:morpho-labs/morpho-liquidation-flash.git",
   "author": "julien <julien.thomas84@gmail.com>",
   "license": "MIT",
+  "scripts": {
+    "test": "yarn hardhat test"
+  },
   "dependencies": {
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
     "@openzeppelin/contracts": "^4.6.0",

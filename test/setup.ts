@@ -20,9 +20,14 @@ export const config = {
       cToken: "0x39aa39c021dfbae8fac545936693ac917d5e7563",
     },
     usdt: {
-      whale: "0x11b815efb8f581194ae79006d24e0d814b7697f6",
+      whale: "0x20b87a2d93fce31f4d614c37d9c78184c684c573",
       address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
       cToken: "0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9",
+    },
+    fei: {
+      whale: "0x6e632701fD42A9b856294A2172dd63f03EB957c5",
+      address: "0x956f47f50a910163d8bf957cf5846d573e7f87ca",
+      cToken: "0x7713DD9Ca933848F6819F38B8352D9A15EA73F67",
     },
   },
 };
@@ -66,6 +71,10 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
   await oracle.setUnderlyingPrice(
     config.tokens.usdc.cToken,
     parseUnits("1", 18 * 2 - 6)
+  );
+  await oracle.setUnderlyingPrice(
+    config.tokens.fei.cToken,
+    parseUnits("1", 18 * 2 - 18)
   );
   // @ts-ignore
   const adminAddress = await comptroller.admin();
