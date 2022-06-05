@@ -1,20 +1,22 @@
 // SPDX-License-Identifier: GNU AGPLv3
 pragma solidity 0.8.13;
 
-import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
 
+
+import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./interface/IERC3156FlashLender.sol";
 import "./interface/IERC3156FlashBorrower.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
-import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
 
-import '@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol';
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
+import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
+
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard {
     //using SafeTransferLib for IERC20;
@@ -71,21 +73,21 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         uint256 amount
     );
 
+    uint256 public constant BASIS_POINTS = 10000;
 
     IMorpho public immutable morpho;
     ICToken public immutable cDai;
     ISwapRouter public immutable uniswapV3Router;
-    uint256 public constant BASIS_POINTS = 10000;
-    mapping(address => bool) isLiquidator;
+    IERC3156FlashLender public immutable lender;
 
-    IERC3156FlashLender lender;
+    mapping(address => bool) public isLiquidator;
 
     constructor (
         IERC3156FlashLender lender_,
         ISwapRouter uniswapV3Router_,
         IMorpho morpho_,
         ICToken cDai_
-    ) public {
+    ) {
         lender = lender_;
         morpho = morpho_;
         cDai = cDai_;
@@ -145,9 +147,9 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             _borrower,
             _repayAmount
         );
-        uint256 balanceBefore = liquidateParams.borrowedUnderlying.balanceOf(address(this));
+        uint256 balanceBefore = liquidateParams.collateralUnderlying.balanceOf(address(this));
         lender.flashLoan(this, address(dai), daiToFlashLoans, data);
-        liquidateParams.amountSeized = liquidateParams.borrowedUnderlying.balanceOf(address(this)) - balanceBefore;
+        liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
         emit Liquidated(
             msg.sender,
             _borrower,
@@ -221,7 +223,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
 
         uint256 balanceBefore = IERC20(flashLoansParams._underlyingTokenCollateralAddress).balanceOf(address(this));
 
-        IERC20(flashLoansParams._underlyingTokenBorrowedAddress).approve(address(morpho), flashLoansParams._repayAmount);
+        IERC20(flashLoansParams._underlyingTokenBorrowedAddress).safeApprove(address(morpho), flashLoansParams._repayAmount);
         morpho.liquidate(flashLoansParams._poolTokenBorrowedAddress, flashLoansParams._poolTokenCollateralAddress, flashLoansParams._borrower, flashLoansParams._repayAmount);
 
         flashLoansParams.seized = IERC20(flashLoansParams._underlyingTokenCollateralAddress).balanceOf(address(this)) - balanceBefore;
@@ -249,7 +251,6 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
                 });
             flashLoansParams.repayFlashloans = uniswapV3Router.exactOutputSingle(outputParams);
         }
-        // IERC20(_underlyingTokenCollateralAddress).safeTransfer(initiator, bonus);
         emit Liquidated(
             flashLoansParams._liquidator,
             flashLoansParams._borrower,

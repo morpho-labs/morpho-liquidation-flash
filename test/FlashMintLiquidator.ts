@@ -39,7 +39,8 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       config.lender,
       config.univ3Router,
       config.morpho,
-      config.tokens.dai.cToken
+      config.tokens.dai.cToken,
+      config.tokens.dai.address,
     );
     await flashLiquidator.deployed();
 
