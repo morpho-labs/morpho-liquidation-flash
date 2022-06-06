@@ -1,10 +1,11 @@
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
-import { Contract, Signer, utils } from "ethers";
-import { config, getTokens, setupCompound } from "./setup";
+import { Contract, Signer } from "ethers";
+import { config, setupCompound } from "./setup";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { pow10 } from "./helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
+import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
 
 describe("Test Flash Mint liquidator on MakerDAO", () => {
   let snapshotId: number;
@@ -47,26 +48,59 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .connect(owner)
       .addLiquidator(await liquidator.getAddress());
 
-    daiToken = await getTokens(
-      config.tokens.dai.whale,
-      "whale",
-      [owner, borrower],
+    daiToken = await ethers.getContractAt(
+      require("../abis/ERC20.json"),
       config.tokens.dai.address,
-      utils.parseUnits("100")
+      owner
     );
-    usdcToken = await getTokens(
-      config.tokens.usdc.whale,
-      "whale",
-      [owner, borrower],
+    await Promise.all(
+      [owner, liquidator, borrower].map(async (acc) => {
+        const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
+          await acc.getAddress(),
+          config.tokens.dai.balanceOfStorageSlot
+        );
+        await hre.ethers.provider.send("hardhat_setStorageAt", [
+          daiToken.address,
+          cropHexString(balanceOfUserStorageSlot),
+          padHexString(parseUnits("10000").toHexString()),
+        ]);
+      })
+    );
+    usdcToken = await ethers.getContractAt(
+      require("../abis/ERC20.json"),
       config.tokens.usdc.address,
-      utils.parseUnits("100", 6)
+      owner
     );
-    feiToken = await getTokens(
-      config.tokens.fei.whale,
-      "whale",
-      [owner, accounts[0]],
+    await Promise.all(
+      [owner, liquidator, borrower].map(async (acc) => {
+        const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
+          await acc.getAddress(),
+          config.tokens.usdc.balanceOfStorageSlot
+        );
+        await hre.ethers.provider.send("hardhat_setStorageAt", [
+          usdcToken.address,
+          cropHexString(balanceOfUserStorageSlot),
+          padHexString(parseUnits("10000", 6).toHexString()),
+        ]);
+      })
+    );
+    feiToken = await ethers.getContractAt(
+      require("../abis/ERC20.json"),
       config.tokens.fei.address,
-      utils.parseUnits("10")
+      owner
+    );
+    await Promise.all(
+      [owner, liquidator, borrower].map(async (acc) => {
+        const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
+          await acc.getAddress(),
+          config.tokens.fei.balanceOfStorageSlot
+        );
+        await hre.ethers.provider.send("hardhat_setStorageAt", [
+          feiToken.address,
+          cropHexString(balanceOfUserStorageSlot),
+          padHexString(parseUnits("10000").toHexString()),
+        ]);
+      })
     );
 
     // get Morpho contract
@@ -122,7 +156,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const poolIndex = await cDaiToken.exchangeRateStored();
     const p2pIndex = await morpho.p2pSupplyIndex(cDaiToken.address);
 
-    // price is 1/1 an
+    // price is 1:1
     const toBorrow = onPool
       .mul(poolIndex)
       .add(inP2P.mul(p2pIndex))
@@ -391,58 +425,53 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-  it.skip("Should liquidate a user with a flash loan and stake bonus tokens with two swaps", async () => {
-    const { isCreated } = await morpho.marketStatus(cFeiToken.address);
-    expect(isCreated).to.be.true;
+  it("Should liquidate a user with a flash loan and stake bonus tokens with two swaps", async () => {
     const borrowerAddress = await borrower.getAddress();
-    const toSupply = parseUnits("10");
-    await feiToken.connect(borrower).approve(morpho.address, toSupply);
-
+    const toSupply = parseUnits("10", 6);
+    await usdcToken.connect(borrower).approve(morpho.address, toSupply);
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
-        cFeiToken.address,
+        cUsdcToken.address,
         borrowerAddress,
         toSupply
       );
 
     const { collateralFactorMantissa } = await comptroller.markets(
-      cFeiToken.address
+      cUsdcToken.address
     );
 
     const { onPool, inP2P } = await morpho.supplyBalanceInOf(
-      cFeiToken.address,
+      cUsdcToken.address,
       borrowerAddress
     );
-    const poolIndex = await cFeiToken.exchangeRateStored();
-    const p2pIndex = await morpho.p2pSupplyIndex(cFeiToken.address);
+    const poolIndex = await cUsdcToken.exchangeRateStored();
+    const p2pIndex = await morpho.p2pSupplyIndex(cUsdcToken.address);
 
-    console.log(onPool, inP2P, poolIndex, p2pIndex, collateralFactorMantissa);
     // price is 1/1 an
     const toBorrow = onPool
       .mul(poolIndex)
       .add(inP2P.mul(p2pIndex))
-      .mul(collateralFactorMantissa);
+      .mul(collateralFactorMantissa)
+      .div(pow10(36 - 12))
+      .sub(1000000000000); // rounding errors
 
     console.log("Start borrow", toBorrow.toString());
     await morpho
       .connect(borrower)
-      ["borrow(address,uint256)"](cUsdcToken.address, toBorrow);
+      ["borrow(address,uint256)"](cFeiToken.address, toBorrow);
 
     await oracle.setUnderlyingPrice(
-      cFeiToken.address,
-      parseUnits("0.95", 18 * 2 - 18)
+      cUsdcToken.address,
+      parseUnits("0.98", 18 * 2 - 6)
     );
     // Mine block
 
     await hre.network.provider.send("evm_mine", []);
 
     const toLiquidate = toBorrow.div(2);
-
-    console.log("fill liquidator contract");
-
     console.log("liquidate user");
-    const collateralBalanceBefore = await feiToken.balanceOf(
+    const collateralBalanceBefore = await usdcToken.balanceOf(
       flashLiquidator.address
     );
 
@@ -450,20 +479,26 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       await flashLiquidator
         .connect(liquidator)
         .liquidate(
+          cFeiToken.address,
           cUsdcToken.address,
-          cDaiToken.address,
           borrowerAddress,
           toLiquidate,
           true
         )
     ).to.emit(flashLiquidator, "Liquidated");
-    const collateralBalanceAfter = await feiToken.balanceOf(
+    const collateralBalanceAfter = await usdcToken.balanceOf(
       flashLiquidator.address
+    );
+    const rewardsAmount = collateralBalanceAfter.sub(collateralBalanceBefore);
+    console.log(
+      "Liquidated amount rewarded",
+      formatUnits(rewardsAmount, 6),
+      "USDC"
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it("Should be able to withdraw funds", async () => {
+  it.skip("Should be able to withdraw funds", async () => {
     const usdcAmount = parseUnits("10", 6);
     console.log("fill liquidator contract");
     // transfer to liquidate without flash loans

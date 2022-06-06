@@ -9,25 +9,24 @@ export const config = {
   lender: "0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853", // https://etherscan.io/address/0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853#code
   tokens: {
     dai: {
-      owner: "0xddb108893104de4e1c6d0e47c42237db4e617acc",
-      whale: "0x4d9079bb4165aeb4084c526a32695dcfd2f77381",
       address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
       cToken: "0x5d3a536E4D6DbD6114cc1Ead35777bAB948E3643",
+      balanceOfStorageSlot: 2,
     },
     usdc: {
-      whale: "0x46340b20830761efd32832A74d7169B29FEB9758",
       address: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
       cToken: "0x39aa39c021dfbae8fac545936693ac917d5e7563",
+      balanceOfStorageSlot: 9,
     },
     usdt: {
-      whale: "0x20b87a2d93fce31f4d614c37d9c78184c684c573",
       address: "0xdAC17F958D2ee523a2206206994597C13D831ec7",
       cToken: "0xf650c3d88d12db855b8bf7d11be6c55a4e07dcc9",
+      balanceOfStorageSlot: 2,
     },
     fei: {
-      whale: "0x6e632701fD42A9b856294A2172dd63f03EB957c5",
       address: "0x956f47f50a910163d8bf957cf5846d573e7f87ca",
       cToken: "0x7713DD9Ca933848F6819F38B8352D9A15EA73F67",
+      balanceOfStorageSlot: 0,
     },
   },
 };
@@ -135,9 +134,6 @@ export const getTokens = async (
           .connect(signerAccount)
           // @ts-ignore
           .transfer(signer.getAddress(), amount);
-      } else {
-        // @ts-ignore
-        await token.mint(signer.getAddress(), amount, { from: signerAddress });
       }
     })
   );

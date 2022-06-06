@@ -14,7 +14,8 @@
     "@rari-capital/solmate": "6.4.0",
     "@uniswap/v3-core": "1.0.1",
     "@uniswap/v3-periphery": "1.4.1",
-    "hardhat": "^2.9.6"
+    "hardhat": "^2.9.6",
+    "slot20": "^0.0.3"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
