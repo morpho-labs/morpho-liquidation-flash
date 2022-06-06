@@ -149,8 +149,8 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenBorrowedAddress);
             daiToFlashLoan = _repayAmount.mul(borrowedTokenPrice).div(daiPrice);
             dai = ERC20(cDai.underlying());
-            uint256 fee = lender.flashFee(address(dai), daiToFlashLoans);
-            dai.safeApprove(address(lender), daiToFlashLoans + fee);
+            uint256 fee = lender.flashFee(address(dai), daiToFlashLoan);
+            dai.safeApprove(address(lender), daiToFlashLoan + fee);
         }
 
         bytes memory data = abi.encode(
@@ -172,7 +172,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
 
         if(!_stakeTokens) {
-            liquidateParams.borrowedUnderlying.safeTransfer(msg.sender, liquidateParams.amountSeized);
+            liquidateParams.collateralUnderlying.safeTransfer(msg.sender, liquidateParams.amountSeized);
         }
 
     }
@@ -281,7 +281,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             );
         }
         emit Liquidated(
-            flashLoansParams._liquidator,
+            address(this),
             flashLoansParams._borrower,
             flashLoansParams._poolTokenBorrowedAddress,
             flashLoansParams._poolTokenCollateralAddress,
@@ -308,8 +308,10 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
     }
 
     function withdraw(address _underlyingAddress, address _receiver, uint256 _amount ) external onlyOwner {
-        ERC20(_underlyingAddress).safeTransfer(_receiver, _amount);
-        emit Withdrawn(msg.sender, _receiver, _underlyingAddress, _amount);
+        uint256 amountMax = ERC20(_underlyingAddress).balanceOf(address(this));
+        uint256 amount = _amount > amountMax ? amountMax : _amount;
+        ERC20(_underlyingAddress).safeTransfer(_receiver, amount);
+        emit Withdrawn(msg.sender, _receiver, _underlyingAddress, amount);
     }
 
 }
