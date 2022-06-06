@@ -135,6 +135,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const [borrower] = accounts;
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
+
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
 
     await morpho
@@ -196,7 +197,9 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           cDaiToken.address,
           borrowerAddress,
           toLiquidate,
-          true
+          true,
+          0,
+          0
         )
     ).to.emit(flashLiquidator, "Liquidated");
 
@@ -206,7 +209,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it("Should liquidate a user with a flash loan as random liquidator", async () => {
+  it.skip("Should liquidate a user with a flash loan as random liquidator", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
@@ -267,7 +270,9 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           cDaiToken.address,
           borrowerAddress,
           toLiquidate,
-          true
+          true,
+          config.swapFees.stable,
+          0
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await daiToken.balanceOf(
@@ -275,7 +280,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-  it("Should liquidate a user with a flash loan and stake bonus tokens with debt swap", async () => {
+  it.only("Should liquidate a user with a flash loan and stake bonus tokens with debt swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
@@ -313,7 +318,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
 
     await oracle.setUnderlyingPrice(
       cDaiToken.address,
-      parseUnits("0.95", 18 * 2 - 18)
+      parseUnits("0.97", 18 * 2 - 18)
     );
     // Mine block
 
@@ -334,11 +339,13 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       await flashLiquidator
         .connect(randomLiquidator)
         .liquidate(
-          cUsdcToken.address,
           cDaiToken.address,
+          cUsdcToken.address,
           borrowerAddress,
           toLiquidate,
-          true
+          true,
+          0,
+          config.swapFees.stable
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await daiToken.balanceOf(
@@ -417,7 +424,9 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           cUsdcToken.address,
           borrowerAddress,
           toLiquidate,
-          true
+          true,
+          0,
+          config.swapFees.stable
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await cDaiToken.balanceOf(
@@ -483,7 +492,9 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           cUsdcToken.address,
           borrowerAddress,
           toLiquidate,
-          true
+          true,
+          config.swapFees.classic,
+          config.swapFees.classic
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await usdcToken.balanceOf(
@@ -498,7 +509,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it.skip("Should be able to withdraw funds", async () => {
+  it("Should the admin be able to withdraw funds", async () => {
     const usdcAmount = parseUnits("10", 6);
     console.log("fill liquidator contract");
     // transfer to liquidate without flash loans
@@ -514,5 +525,23 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     ).to.emit(flashLiquidator, "Withdrawn");
     const balanceAfter = await usdcToken.balanceOf(owner.getAddress());
     expect(balanceAfter.sub(balanceBefore).eq(usdcAmount)).to.be.true;
+  });
+
+  it("Should the admin be able to withdraw a part of the funds", async () => {
+    const usdcAmount = parseUnits("10", 6);
+    console.log("fill liquidator contract");
+    // transfer to liquidate without flash loans
+    await usdcToken
+      .connect(owner)
+      .transfer(flashLiquidator.address, usdcAmount);
+
+    const balanceBefore = await usdcToken.balanceOf(owner.getAddress());
+    expect(
+      await flashLiquidator
+        .connect(owner)
+        .withdraw(usdcToken.address, owner.getAddress(), usdcAmount.div(2))
+    ).to.emit(flashLiquidator, "Withdrawn");
+    const balanceAfter = await usdcToken.balanceOf(owner.getAddress());
+    expect(balanceAfter.sub(balanceBefore).eq(usdcAmount.div(2))).to.be.true;
   });
 });

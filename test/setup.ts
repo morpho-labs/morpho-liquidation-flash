@@ -29,6 +29,11 @@ export const config = {
       balanceOfStorageSlot: 0,
     },
   },
+  swapFees: {
+    exotic: 3000,
+    classic: 500,
+    stable: 100,
+  },
 };
 export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await morpho.getAllMarkets();
