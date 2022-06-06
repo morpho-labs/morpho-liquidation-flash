@@ -39,8 +39,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       config.lender,
       config.univ3Router,
       config.morpho,
-      config.tokens.dai.cToken,
-      config.tokens.dai.address,
+      config.tokens.dai.cToken
     );
     await flashLiquidator.deployed();
 
@@ -315,7 +314,8 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       flashLiquidator.address
     );
     expect(
-      collateralBalanceFlashLiquidatorAfter.eq(
+      // if over swapped DAI
+      collateralBalanceFlashLiquidatorAfter.gte(
         collateralBalanceFlashLiquidatorBefore
       )
     ).to.be.true;
@@ -360,7 +360,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
 
     await oracle.setUnderlyingPrice(
       cUsdcToken.address,
-      parseUnits("0.95", 18 * 2 - 6)
+      parseUnits("0.99", 18 * 2 - 6)
     );
     // Mine block
 
