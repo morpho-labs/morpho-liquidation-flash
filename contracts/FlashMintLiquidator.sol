@@ -23,7 +23,6 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
 
 
     struct FlashLoansParams {
-        address _liquidator;
         address _poolTokenBorrowedAddress;
         address _poolTokenCollateralAddress;
         address _underlyingTokenBorrowedAddress;
@@ -32,6 +31,8 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         uint256 _repayAmount;
         uint256 seized;
         uint256 repayFlashloans;
+        uint24 firstSwapFees;
+        uint24 secondSwapFees;
     }
     struct LiquidateParams {
         ERC20 collateralUnderlying;
@@ -52,6 +53,11 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         bool usingFlashLoans
     );
 
+    event FlashLoan(
+        address indexed _initiator,
+        uint256 amount
+    );
+
     event LiquidatorAdded(
         address indexed _liquidatorAdded
     );
@@ -69,6 +75,14 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
 
     event OverSwappedDai(
         uint256 amount
+    );
+
+    event Swapped(
+        address indexed tokenIn,
+        address indexed tokenOut,
+        uint256 amountIn,
+        uint256 amountOut,
+        uint24 fees
     );
 
     uint256 public constant BASIS_POINTS = 10000;
@@ -99,7 +113,9 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
         address _poolTokenCollateralAddress,
         address _borrower,
         uint256 _repayAmount,
-        bool _stakeTokens
+        bool _stakeTokens,
+        uint24 _firstSwapFees,
+        uint24 _secondSwapFees
     ) external nonReentrant {
         LiquidateParams memory liquidateParams;
         liquidateParams.collateralUnderlying = ERC20(ICToken(_poolTokenCollateralAddress).underlying());
@@ -126,12 +142,12 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             }
         }
         ERC20 dai;
-        uint256 daiToFlashLoans;
+        uint256 daiToFlashLoan;
         {
             ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
             uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
             uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenBorrowedAddress);
-            daiToFlashLoans = _repayAmount.mul(borrowedTokenPrice).div(daiPrice);
+            daiToFlashLoan = _repayAmount.mul(borrowedTokenPrice).div(daiPrice);
             dai = ERC20(cDai.underlying());
             uint256 fee = lender.flashFee(address(dai), daiToFlashLoans);
             dai.safeApprove(address(lender), daiToFlashLoans + fee);
@@ -143,23 +159,21 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             address(liquidateParams.borrowedUnderlying),
             address(liquidateParams.collateralUnderlying),
             _borrower,
-            _repayAmount
+            _repayAmount,
+            _firstSwapFees,
+            _secondSwapFees
         );
         uint256 balanceBefore = liquidateParams.collateralUnderlying.balanceOf(address(this));
-        lender.flashLoan(this, address(dai), daiToFlashLoans, data);
-        liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
-        emit Liquidated(
+        lender.flashLoan(this, address(dai), daiToFlashLoan, data);
+        emit FlashLoan(
             msg.sender,
-            _borrower,
-            _poolTokenBorrowedAddress,
-            _poolTokenCollateralAddress,
-            _repayAmount,
-            liquidateParams.amountSeized,
-            true
+            daiToFlashLoan
         );
+        liquidateParams.amountSeized = liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
 
-        if(!_stakeTokens)
+        if(!_stakeTokens) {
             liquidateParams.borrowedUnderlying.safeTransfer(msg.sender, liquidateParams.amountSeized);
+        }
 
     }
 
@@ -186,9 +200,10 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             flashLoansParams._underlyingTokenBorrowedAddress,
             flashLoansParams._underlyingTokenCollateralAddress,
             flashLoansParams._borrower,
-            flashLoansParams._repayAmount
-        ) = abi.decode(data, (address,address,address,address,address,uint256));
-        uint24 poolFee = 3000; // 0.3% 1e6 BASIS POINTS
+            flashLoansParams._repayAmount,
+            flashLoansParams.firstSwapFees,
+            flashLoansParams.secondSwapFees
+        ) = abi.decode(data, (address,address,address,address,address,uint256,uint24,uint24));
 
         flashLoansParams.repayFlashloans = amount + fee; // keep the minimum amount to repay flash loan
         if(token != flashLoansParams._underlyingTokenBorrowedAddress) {
@@ -200,7 +215,7 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             ISwapRouter.ExactInputSingleParams({
             tokenIn: token,
             tokenOut: flashLoansParams._underlyingTokenBorrowedAddress,
-            fee: poolFee,
+            fee: flashLoansParams.firstSwapFees,
             recipient: address(this),
             deadline: block.timestamp,
             amountIn: amount,
@@ -216,6 +231,13 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
                 } else {
                     flashLoansParams._repayAmount = swapped;
                 }
+                emit Swapped(
+                    token,
+                    flashLoansParams._underlyingTokenBorrowedAddress,
+                    amount,
+                    swapped,
+                    flashLoansParams.firstSwapFees
+                );
             }
         }
 
@@ -235,12 +257,12 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
             }
             // require(amountInMaximum >= flashLoansParams.seized, "FlashBorrower: Cannot assume slippage");
 
-            ERC20(flashLoansParams._underlyingTokenCollateralAddress).safeApprove(address(uniswapV3Router), flashLoansParams.seized);
+            ERC20(flashLoansParams._underlyingTokenCollateralAddress).safeApprove(address(uniswapV3Router), amountInMaximum);
             ISwapRouter.ExactOutputSingleParams memory outputParams =
                 ISwapRouter.ExactOutputSingleParams({
                     tokenIn: flashLoansParams._underlyingTokenCollateralAddress,
                     tokenOut: token,
-                    fee: poolFee,
+                    fee: flashLoansParams.secondSwapFees,
                     recipient: address(this),
                     deadline: block.timestamp,
                     amountOut: flashLoansParams.repayFlashloans,
@@ -248,7 +270,15 @@ contract FlashMintLiquidator is IERC3156FlashBorrower, Ownable, ReentrancyGuard 
                     // We also set the sqrtPriceLimitx96 to be 0 to ensure we swap our exact output amount.
                     sqrtPriceLimitX96: 0
                 });
-            flashLoansParams.repayFlashloans = uniswapV3Router.exactOutputSingle(outputParams);
+            uint256 swappedIn = uniswapV3Router.exactOutputSingle(outputParams);
+
+            emit Swapped(
+                flashLoansParams._underlyingTokenCollateralAddress,
+                token,
+                swappedIn,
+                flashLoansParams.repayFlashloans,
+                flashLoansParams.secondSwapFees
+            );
         }
         emit Liquidated(
             flashLoansParams._liquidator,
