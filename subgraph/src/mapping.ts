@@ -18,5 +18,5 @@ export function handleBorrowed(event: Borrowed): void {
   addUser(event.params._borrower, true);
 }
 export function handleSupplied(event: Supplied): void {
-  addUser(event.params._onBehalf, true);
+  addUser(event.params._onBehalf, false);
 }
