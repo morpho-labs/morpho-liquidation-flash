@@ -6,7 +6,8 @@
   "author": "julien <julien.thomas84@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "test": "yarn hardhat test"
+    "test": "yarn hardhat test",
+    "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write"
   },
   "dependencies": {
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
