@@ -40,7 +40,8 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       config.lender,
       config.univ3Router,
       config.morpho,
-      config.tokens.dai.cToken
+      config.tokens.dai.cToken,
+      config.slippageTolerance
     );
     await flashLiquidator.deployed();
 
@@ -225,7 +226,6 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const { collateralFactorMantissa } = await comptroller.markets(
       cDaiToken.address
     );
-
     const { onPool, inP2P } = await morpho.supplyBalanceInOf(
       cDaiToken.address,
       borrowerAddress
@@ -280,6 +280,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
+
   it.only("Should liquidate a user with a flash loan and stake bonus tokens with debt swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
@@ -318,26 +319,24 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
 
     await oracle.setUnderlyingPrice(
       cDaiToken.address,
-      parseUnits("0.97", 18 * 2 - 18)
+      parseUnits("0.99", 18 * 2 - 18)
     );
     // Mine block
 
     await hre.network.provider.send("evm_mine", []);
 
-    const toLiquidate = toBorrow.div(2);
-
-    console.log("fill liquidator contract");
+    const toLiquidate = toBorrow.div(2).sub(100000); // tackle with rounding errors
 
     console.log("liquidate user");
     const collateralBalanceBefore = await daiToken.balanceOf(
-      randomLiquidator.getAddress()
+      liquidator.getAddress()
     );
     const collateralBalanceFlashLiquidatorBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(
       await flashLiquidator
-        .connect(randomLiquidator)
+        .connect(liquidator)
         .liquidate(
           cDaiToken.address,
           cUsdcToken.address,
@@ -349,7 +348,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await daiToken.balanceOf(
-      randomLiquidator.getAddress()
+      liquidator.getAddress()
     );
     const collateralBalanceFlashLiquidatorAfter = await daiToken.balanceOf(
       flashLiquidator.address

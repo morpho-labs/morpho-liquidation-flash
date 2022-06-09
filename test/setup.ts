@@ -7,6 +7,7 @@ export const config = {
   lens: "",
   univ3Router: "0xe592427a0aece92de3edee1f18e0157c05861564", // https://etherscan.io/address/0xe592427a0aece92de3edee1f18e0157c05861564
   lender: "0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853", // https://etherscan.io/address/0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853#code
+  slippageTolerance: 100, // 1%
   tokens: {
     dai: {
       address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
