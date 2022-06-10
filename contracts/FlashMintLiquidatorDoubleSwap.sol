@@ -114,6 +114,10 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
                 _flashLoanParams.toLiquidate,
                 _flashLoanParams.firstSwapFees
             );
+        } else {
+            _flashLoanParams.toLiquidate = _amountIn < _flashLoanParams.toLiquidate
+                ? _amountIn
+                : _flashLoanParams.toLiquidate; // resolve rounding errors
         }
 
         LiquidateParams memory liquidateParams = LiquidateParams(
@@ -131,6 +135,7 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
             // tokenIn, seized, amountOut,
             _doSecondSwap(
                 _flashLoanParams.collateralUnderlying,
+                _flashLoanParams.poolTokenCollateral,
                 seized,
                 _toRepayFlashLoan,
                 _flashLoanParams.secondSwapFees
@@ -184,6 +189,7 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
 
     function _doSecondSwap(
         address _tokenIn,
+        address _poolTokenIn,
         uint256 _seized,
         uint256 _amountOut,
         uint24 _fee
@@ -193,7 +199,7 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
             ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
             amountInMaximum = _amountOut
                 .mul(oracle.getUnderlyingPrice(address(cDai)))
-                .div(oracle.getUnderlyingPrice(address(_tokenIn)))
+                .div(oracle.getUnderlyingPrice(address(_poolTokenIn)))
                 .percentMul(BASIS_POINTS + slippageTolerance);
 
             amountInMaximum = amountInMaximum > _seized ? _seized : amountInMaximum;

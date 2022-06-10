@@ -214,7 +214,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it("Should liquidate a user with a flash loan and no swap", async () => {
+  it.only("Should liquidate a user with a flash loan and no swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
@@ -270,12 +270,10 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .div(2)
       .div(pow10(18));
 
-    console.log("fill liquidator contract");
-
     console.log(
       "liquidate user",
-      formatUnits(toLiquidate, 6),
-      formatUnits(toBorrow.div(2), 6)
+      formatUnits(toLiquidate, 18),
+      formatUnits(toBorrow.div(2), 18)
     );
     const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
@@ -469,7 +467,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .div(pow10(18));
 
     console.log("liquidate user");
-    const collateralBalanceBefore = await cDaiToken.balanceOf(
+    const collateralBalanceBefore = await usdcToken.balanceOf(
       flashLiquidator.address
     );
 
@@ -486,7 +484,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           config.swapFees.stable
         )
     ).to.emit(flashLiquidator, "Liquidated");
-    const collateralBalanceAfter = await cDaiToken.balanceOf(
+    const collateralBalanceAfter = await usdcToken.balanceOf(
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
