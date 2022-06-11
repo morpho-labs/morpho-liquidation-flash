@@ -2,13 +2,6 @@
 pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "./interface/IERC3156FlashLender.sol";
-import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
-import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
-
-import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
-import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
-import "./libraries/PercentageMath.sol";
 
 import "./FlashMintLiquidatorBase.sol";
 

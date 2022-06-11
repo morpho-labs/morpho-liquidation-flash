@@ -6,7 +6,6 @@ import "./interface/IERC3156FlashBorrower.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 
-import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
 import "./libraries/PercentageMath.sol";
 
@@ -57,14 +56,14 @@ abstract contract FlashMintLiquidatorBase is
         address indexed poolTokenCollateralAddress,
         uint256 amount,
         uint256 seized,
-        bool usingFlashLoans
+        bool usingFlashLoan
     );
 
-    event FlashLoan(address indexed _initiator, uint256 amount);
+    event FlashLoan(address indexed initiator, uint256 amount);
 
     event OverSwappedDai(uint256 amount);
 
-    uint256 public constant BASIS_POINTS = 10000;
+    uint256 public constant BASIS_POINTS = 10_000;
     uint256 public slippageTolerance; // in BASIS_POINTS units
 
     IERC3156FlashLender public immutable lender;
@@ -176,6 +175,6 @@ abstract contract FlashMintLiquidatorBase is
     }
 
     function _getUnderlying(address _poolToken) internal view returns (ERC20 underlying_) {
-        return _poolToken == address(cEth) ? wEth : ERC20(ICToken(_poolToken).underlying());
+        underlying_ = _poolToken == address(cEth) ? wEth : ERC20(ICToken(_poolToken).underlying());
     }
 }
