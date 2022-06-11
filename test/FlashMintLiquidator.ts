@@ -214,7 +214,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it.only("Should liquidate a user with a flash loan and no swap", async () => {
+  it("Should liquidate a user with a flash loan and no swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
     await daiToken.connect(borrower).approve(morpho.address, toSupply);

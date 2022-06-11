@@ -6,7 +6,6 @@ import "./interface/IERC3156FlashBorrower.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 
-import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
 import "./libraries/PercentageMath.sol";
 
@@ -57,14 +56,15 @@ abstract contract FlashMintLiquidatorBase is
         address indexed poolTokenCollateralAddress,
         uint256 amount,
         uint256 seized,
-        bool usingFlashLoans
+        bool usingFlashLoan
     );
 
-    event FlashLoan(address indexed _initiator, uint256 amount);
+    event FlashLoan(address indexed initiator, uint256 amount);
 
     event OverSwappedDai(uint256 amount);
 
-    uint256 public constant BASIS_POINTS = 10000;
+    uint256 public constant BASIS_POINTS = 10_000;
+    bytes32 public constant FLASHLOAN_CALLBACK = keccak256("ERC3156FlashBorrower.onFlashLoan");
     uint256 public slippageTolerance; // in BASIS_POINTS units
 
     IERC3156FlashLender public immutable lender;
@@ -89,7 +89,7 @@ abstract contract FlashMintLiquidatorBase is
 
     function _liquidateInternal(LiquidateParams memory _liquidateParams)
         internal
-        returns (uint256 seized)
+        returns (uint256 seized_)
     {
         uint256 balanceBefore = _liquidateParams.collateralUnderlying.balanceOf(address(this));
         _liquidateParams.borrowedUnderlying.safeApprove(address(morpho), _liquidateParams.toRepay);
@@ -99,14 +99,14 @@ abstract contract FlashMintLiquidatorBase is
             _liquidateParams.borrower,
             _liquidateParams.toRepay
         );
-        seized = _liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
+        seized_ = _liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
         emit Liquidated(
             msg.sender,
             _liquidateParams.borrower,
             address(_liquidateParams.poolTokenBorrowed),
             address(_liquidateParams.poolTokenCollateral),
             _liquidateParams.toRepay,
-            seized,
+            seized_,
             false
         );
     }
@@ -122,7 +122,7 @@ abstract contract FlashMintLiquidatorBase is
             _flashLoanParams.toLiquidate
         );
 
-        dai.safeApprove(address(lender), daiToFlashLoan);
+        dai.safeApprove(address(lender), daiToFlashLoan + lender.flashFee(address(dai), daiToFlashLoan));
 
         uint256 balanceBefore = ERC20(_flashLoanParams.collateralUnderlying).balanceOf(
             address(this)
@@ -146,7 +146,6 @@ abstract contract FlashMintLiquidatorBase is
         uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
         uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenToRepay);
         amountToFlashLoan_ = _amountToRepay.mul(borrowedTokenPrice).div(daiPrice);
-        amountToFlashLoan_ += lender.flashFee(address(dai), amountToFlashLoan_);
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)
@@ -176,6 +175,6 @@ abstract contract FlashMintLiquidatorBase is
     }
 
     function _getUnderlying(address _poolToken) internal view returns (ERC20 underlying_) {
-        return _poolToken == address(cEth) ? wEth : ERC20(ICToken(_poolToken).underlying());
+        underlying_ = _poolToken == address(cEth) ? wEth : ERC20(ICToken(_poolToken).underlying());
     }
 }

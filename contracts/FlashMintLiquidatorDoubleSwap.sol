@@ -2,13 +2,6 @@
 pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
-import "./interface/IERC3156FlashLender.sol";
-import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
-import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
-
-import "@rari-capital/solmate/src/utils/SafeTransferLib.sol";
-import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
-import "./libraries/PercentageMath.sol";
 
 import "./FlashMintLiquidatorBase.sol";
 
@@ -41,6 +34,12 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         emit SlippageToleranceSet(_slippageTolerance);
     }
 
+    function setSlippageTolerance(uint256 _newTolerance) external onlyOwner {
+        if (_newTolerance > BASIS_POINTS) revert ValueAboveBasisPoints();
+        slippageTolerance = _newTolerance;
+        emit SlippageToleranceSet(_newTolerance);
+    }
+
     function liquidate(
         address _poolTokenBorrowedAddress,
         address _poolTokenCollateralAddress,
@@ -60,46 +59,42 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
             _repayAmount
         );
 
-        if (liquidateParams.borrowedUnderlying.balanceOf(address(this)) >= _repayAmount) {
-            uint256 seized = _liquidateInternal(liquidateParams);
-            if (!_stakeTokens) {
-                liquidateParams.collateralUnderlying.safeTransfer(msg.sender, seized);
-            }
-            return;
+        uint seized;
+        if (liquidateParams.borrowedUnderlying.balanceOf(address(this)) >= _repayAmount)
+            seized = _liquidateInternal(liquidateParams);
+        else {
+            FlashLoanParams memory params = FlashLoanParams(
+                address(liquidateParams.collateralUnderlying),
+                address(liquidateParams.borrowedUnderlying),
+                address(liquidateParams.poolTokenCollateral),
+                address(liquidateParams.poolTokenBorrowed),
+                liquidateParams.liquidator,
+                liquidateParams.borrower,
+                liquidateParams.toRepay,
+                _firstSwapFees,
+                _secondSwapFees
+            );
+            seized = _liquidateWithFlashLoan(params);
         }
-        FlashLoanParams memory params = FlashLoanParams(
-            address(liquidateParams.collateralUnderlying),
-            address(liquidateParams.borrowedUnderlying),
-            address(liquidateParams.poolTokenCollateral),
-            address(liquidateParams.poolTokenBorrowed),
-            liquidateParams.liquidator,
-            liquidateParams.borrower,
-            liquidateParams.toRepay,
-            _firstSwapFees,
-            _secondSwapFees
-        );
 
-        uint256 seized = _liquidateWithFlashLoan(params);
-
-        if (!_stakeTokens) {
+        if (!_stakeTokens)
             liquidateParams.collateralUnderlying.safeTransfer(msg.sender, seized);
-        }
     }
 
     /// @dev ERC-3156 Flash loan callback
     function onFlashLoan(
-        address initiator,
-        address daiLoanedToken,
-        uint256 amount,
-        uint256 fee,
+        address _initiator,
+        address _daiLoanedToken,
+        uint256 _amount,
+        uint256 _fee,
         bytes calldata data
     ) external override returns (bytes32) {
         if (msg.sender != address(lender)) revert UnknownLender();
-        if (initiator != address(this)) revert UnknownInitiator();
+        if (_initiator != address(this)) revert UnknownInitiator();
         FlashLoanParams memory flashLoanParams = _decodeData(data);
 
-        _flashLoanInternal(flashLoanParams, amount, amount + fee);
-        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+        _flashLoanInternal(flashLoanParams, _amount, _amount + _fee);
+        return FLASHLOAN_CALLBACK;
     }
 
     function _flashLoanInternal(
@@ -107,7 +102,7 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         uint256 _amountIn,
         uint256 _toRepayFlashLoan
     ) internal {
-        if (address(dai) != _flashLoanParams.borrowedUnderlying) {
+        if (_flashLoanParams.borrowedUnderlying != address(dai)) {
             _flashLoanParams.toLiquidate = _doFirstSwap(
                 _flashLoanParams.borrowedUnderlying,
                 _amountIn,
@@ -132,7 +127,6 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         uint256 seized = _liquidateInternal(liquidateParams);
 
         if (_flashLoanParams.collateralUnderlying != address(dai)) {
-            // tokenIn, seized, amountOut,
             _doSecondSwap(
                 _flashLoanParams.collateralUnderlying,
                 _flashLoanParams.poolTokenCollateral,
@@ -174,17 +168,15 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
             amountOutMinimum: amountOutMinimumWithSlippage,
             sqrtPriceLimitX96: 0
         });
-        {
-            uint256 swapped = uniswapV3Router.exactInputSingle(params);
-            if (swapped > _amountOutMaximum) {
-                // this is a bonus due to over swapped tokens
-                emit OverSwappedDai(swapped - _amountOutMaximum);
-                amountOut_ = _amountOutMaximum;
-            } else {
-                amountOut_ = swapped;
-            }
-            emit Swapped(address(dai), _tokenOut, _amountIn, swapped, _fee);
-        }
+
+        uint256 swapped = uniswapV3Router.exactInputSingle(params);
+        if (swapped > _amountOutMaximum) {
+            // this is a bonus due to over swapped tokens
+            emit OverSwappedDai(swapped - _amountOutMaximum);
+            amountOut_ = _amountOutMaximum;
+        } else amountOut_ = swapped;
+
+        emit Swapped(address(dai), _tokenOut, _amountIn, swapped, _fee);
     }
 
     function _doSecondSwap(
@@ -195,15 +187,14 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         uint24 _fee
     ) internal returns (uint256 swappedIn_) {
         uint256 amountInMaximum;
-        {
-            ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
-            amountInMaximum = _amountOut
-                .mul(oracle.getUnderlyingPrice(address(cDai)))
-                .div(oracle.getUnderlyingPrice(address(_poolTokenIn)))
-                .percentMul(BASIS_POINTS + slippageTolerance);
 
-            amountInMaximum = amountInMaximum > _seized ? _seized : amountInMaximum;
-        }
+        ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
+        amountInMaximum = _amountOut
+            .mul(oracle.getUnderlyingPrice(address(cDai)))
+            .div(oracle.getUnderlyingPrice(address(_poolTokenIn)))
+            .percentMul(BASIS_POINTS + slippageTolerance);
+
+        amountInMaximum = amountInMaximum > _seized ? _seized : amountInMaximum;
 
         ERC20(_tokenIn).safeApprove(address(uniswapV3Router), amountInMaximum);
 
@@ -218,13 +209,8 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
                 amountInMaximum: amountInMaximum,
                 sqrtPriceLimitX96: 0
             });
-        uint256 swappedIn_ = uniswapV3Router.exactOutputSingle(outputParams);
-        emit Swapped(_tokenIn, address(dai), swappedIn_, _amountOut, _fee);
-    }
 
-    function setSlippageTolerance(uint256 _newTolerance) external onlyOwner {
-        if (_newTolerance > BASIS_POINTS) revert ValueAboveBasisPoints();
-        slippageTolerance = _newTolerance;
-        emit SlippageToleranceSet(_newTolerance);
+        swappedIn_ = uniswapV3Router.exactOutputSingle(outputParams);
+        emit Swapped(_tokenIn, address(dai), swappedIn_, _amountOut, _fee);
     }
 }
