@@ -88,7 +88,7 @@ abstract contract FlashMintLiquidatorBase is
 
     function _liquidateInternal(LiquidateParams memory _liquidateParams)
         internal
-        returns (uint256 seized)
+        returns (uint256 seized_)
     {
         uint256 balanceBefore = _liquidateParams.collateralUnderlying.balanceOf(address(this));
         _liquidateParams.borrowedUnderlying.safeApprove(address(morpho), _liquidateParams.toRepay);
@@ -98,14 +98,14 @@ abstract contract FlashMintLiquidatorBase is
             _liquidateParams.borrower,
             _liquidateParams.toRepay
         );
-        seized = _liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
+        seized_ = _liquidateParams.collateralUnderlying.balanceOf(address(this)) - balanceBefore;
         emit Liquidated(
             msg.sender,
             _liquidateParams.borrower,
             address(_liquidateParams.poolTokenBorrowed),
             address(_liquidateParams.poolTokenCollateral),
             _liquidateParams.toRepay,
-            seized,
+            seized_,
             false
         );
     }

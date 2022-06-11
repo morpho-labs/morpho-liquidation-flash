@@ -54,10 +54,8 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         );
 
         uint seized;
-        if (liquidateParams.borrowedUnderlying.balanceOf(address(this)) >= _repayAmount) {
-
+        if (liquidateParams.borrowedUnderlying.balanceOf(address(this)) >= _repayAmount)
             seized = _liquidateInternal(liquidateParams);
-        }
         else {
             FlashLoanParams memory params = FlashLoanParams(
                 address(liquidateParams.collateralUnderlying),
@@ -79,17 +77,17 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
 
     /// @dev ERC-3156 Flash loan callback
     function onFlashLoan(
-        address initiator,
-        address daiLoanedToken,
-        uint256 amount,
-        uint256 fee,
+        address _initiator,
+        address _daiLoanedToken,
+        uint256 _amount,
+        uint256 _fee,
         bytes calldata data
     ) external override returns (bytes32) {
         if (msg.sender != address(lender)) revert UnknownLender();
-        if (initiator != address(this)) revert UnknownInitiator();
+        if (_initiator != address(this)) revert UnknownInitiator();
         FlashLoanParams memory flashLoanParams = _decodeData(data);
 
-        _flashLoanInternal(flashLoanParams, amount, amount + fee);
+        _flashLoanInternal(flashLoanParams, _amount, _amount + _fee);
         return keccak256("ERC3156FlashBorrower.onFlashLoan");
     }
 
@@ -165,17 +163,15 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
             amountOutMinimum: amountOutMinimumWithSlippage,
             sqrtPriceLimitX96: 0
         });
-        {
-            uint256 swapped = uniswapV3Router.exactInputSingle(params);
-            if (swapped > _amountOutMaximum) {
-                // this is a bonus due to over swapped tokens
-                emit OverSwappedDai(swapped - _amountOutMaximum);
-                amountOut_ = _amountOutMaximum;
-            } else {
-                amountOut_ = swapped;
-            }
-            emit Swapped(address(dai), _tokenOut, _amountIn, swapped, _fee);
-        }
+
+        uint256 swapped = uniswapV3Router.exactInputSingle(params);
+        if (swapped > _amountOutMaximum) {
+            // this is a bonus due to over swapped tokens
+            emit OverSwappedDai(swapped - _amountOutMaximum);
+            amountOut_ = _amountOutMaximum;
+        } else amountOut_ = swapped;
+
+        emit Swapped(address(dai), _tokenOut, _amountIn, swapped, _fee);
     }
 
     function _doSecondSwap(
@@ -186,15 +182,14 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         uint24 _fee
     ) internal returns (uint256 swappedIn_) {
         uint256 amountInMaximum;
-        {
-            ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
-            amountInMaximum = _amountOut
-                .mul(oracle.getUnderlyingPrice(address(cDai)))
-                .div(oracle.getUnderlyingPrice(address(_poolTokenIn)))
-                .percentMul(BASIS_POINTS + slippageTolerance);
 
-            amountInMaximum = amountInMaximum > _seized ? _seized : amountInMaximum;
-        }
+        ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
+        amountInMaximum = _amountOut
+            .mul(oracle.getUnderlyingPrice(address(cDai)))
+            .div(oracle.getUnderlyingPrice(address(_poolTokenIn)))
+            .percentMul(BASIS_POINTS + slippageTolerance);
+
+        amountInMaximum = amountInMaximum > _seized ? _seized : amountInMaximum;
 
         ERC20(_tokenIn).safeApprove(address(uniswapV3Router), amountInMaximum);
 
@@ -209,7 +204,8 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
                 amountInMaximum: amountInMaximum,
                 sqrtPriceLimitX96: 0
             });
-        uint256 swappedIn_ = uniswapV3Router.exactOutputSingle(outputParams);
+
+        swappedIn_ = uniswapV3Router.exactOutputSingle(outputParams);
         emit Swapped(_tokenIn, address(dai), swappedIn_, _amountOut, _fee);
     }
 
