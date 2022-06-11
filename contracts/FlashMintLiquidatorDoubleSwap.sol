@@ -53,30 +53,28 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
             _repayAmount
         );
 
+        uint seized;
         if (liquidateParams.borrowedUnderlying.balanceOf(address(this)) >= _repayAmount) {
-            uint256 seized = _liquidateInternal(liquidateParams);
-            if (!_stakeTokens) {
-                liquidateParams.collateralUnderlying.safeTransfer(msg.sender, seized);
-            }
-            return;
+
+            seized = _liquidateInternal(liquidateParams);
         }
-        FlashLoanParams memory params = FlashLoanParams(
-            address(liquidateParams.collateralUnderlying),
-            address(liquidateParams.borrowedUnderlying),
-            address(liquidateParams.poolTokenCollateral),
-            address(liquidateParams.poolTokenBorrowed),
-            liquidateParams.liquidator,
-            liquidateParams.borrower,
-            liquidateParams.toRepay,
-            _firstSwapFees,
-            _secondSwapFees
-        );
+        else {
+            FlashLoanParams memory params = FlashLoanParams(
+                address(liquidateParams.collateralUnderlying),
+                address(liquidateParams.borrowedUnderlying),
+                address(liquidateParams.poolTokenCollateral),
+                address(liquidateParams.poolTokenBorrowed),
+                liquidateParams.liquidator,
+                liquidateParams.borrower,
+                liquidateParams.toRepay,
+                _firstSwapFees,
+                _secondSwapFees
+            );
+            seized = _liquidateWithFlashLoan(params);
+        }
 
-        uint256 seized = _liquidateWithFlashLoan(params);
-
-        if (!_stakeTokens) {
+        if (!_stakeTokens)
             liquidateParams.collateralUnderlying.safeTransfer(msg.sender, seized);
-        }
     }
 
     /// @dev ERC-3156 Flash loan callback
