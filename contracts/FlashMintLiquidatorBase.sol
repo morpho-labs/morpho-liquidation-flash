@@ -121,7 +121,7 @@ abstract contract FlashMintLiquidatorBase is
             _flashLoanParams.toLiquidate
         );
 
-        dai.safeApprove(address(lender), daiToFlashLoan);
+        dai.safeApprove(address(lender), daiToFlashLoan + lender.flashFee(address(dai), daiToFlashLoan));
 
         uint256 balanceBefore = ERC20(_flashLoanParams.collateralUnderlying).balanceOf(
             address(this)
@@ -145,7 +145,6 @@ abstract contract FlashMintLiquidatorBase is
         uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
         uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenToRepay);
         amountToFlashLoan_ = _amountToRepay.mul(borrowedTokenPrice).div(daiPrice);
-        amountToFlashLoan_ += lender.flashFee(address(dai), amountToFlashLoan_);
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)
