@@ -64,6 +64,7 @@ abstract contract FlashMintLiquidatorBase is
     event OverSwappedDai(uint256 amount);
 
     uint256 public constant BASIS_POINTS = 10_000;
+    bytes32 public constant FLASHLOAN_CALLBACK = keccak256("ERC3156FlashBorrower.onFlashLoan");
     uint256 public slippageTolerance; // in BASIS_POINTS units
 
     IERC3156FlashLender public immutable lender;

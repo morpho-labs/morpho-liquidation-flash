@@ -34,6 +34,12 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         emit SlippageToleranceSet(_slippageTolerance);
     }
 
+    function setSlippageTolerance(uint256 _newTolerance) external onlyOwner {
+        if (_newTolerance > BASIS_POINTS) revert ValueAboveBasisPoints();
+        slippageTolerance = _newTolerance;
+        emit SlippageToleranceSet(_newTolerance);
+    }
+
     function liquidate(
         address _poolTokenBorrowedAddress,
         address _poolTokenCollateralAddress,
@@ -88,7 +94,7 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         FlashLoanParams memory flashLoanParams = _decodeData(data);
 
         _flashLoanInternal(flashLoanParams, _amount, _amount + _fee);
-        return keccak256("ERC3156FlashBorrower.onFlashLoan");
+        return FLASHLOAN_CALLBACK;
     }
 
     function _flashLoanInternal(
@@ -96,7 +102,7 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         uint256 _amountIn,
         uint256 _toRepayFlashLoan
     ) internal {
-        if (address(dai) != _flashLoanParams.borrowedUnderlying) {
+        if (_flashLoanParams.borrowedUnderlying != address(dai)) {
             _flashLoanParams.toLiquidate = _doFirstSwap(
                 _flashLoanParams.borrowedUnderlying,
                 _amountIn,
@@ -121,7 +127,6 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
         uint256 seized = _liquidateInternal(liquidateParams);
 
         if (_flashLoanParams.collateralUnderlying != address(dai)) {
-            // tokenIn, seized, amountOut,
             _doSecondSwap(
                 _flashLoanParams.collateralUnderlying,
                 _flashLoanParams.poolTokenCollateral,
@@ -207,11 +212,5 @@ contract FlashMintLiquidatorDoubleSwap is FlashMintLiquidatorBase {
 
         swappedIn_ = uniswapV3Router.exactOutputSingle(outputParams);
         emit Swapped(_tokenIn, address(dai), swappedIn_, _amountOut, _fee);
-    }
-
-    function setSlippageTolerance(uint256 _newTolerance) external onlyOwner {
-        if (_newTolerance > BASIS_POINTS) revert ValueAboveBasisPoints();
-        slippageTolerance = _newTolerance;
-        emit SlippageToleranceSet(_newTolerance);
     }
 }
