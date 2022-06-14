@@ -2,11 +2,11 @@
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { Contract, Signer } from "ethers";
-import { config, setupCompound } from "./setup";
+import { setupCompound, setupToken } from "./setup";
 import { parseUnits } from "ethers/lib/utils";
 import { pow10 } from "./helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
+import config from "./config";
 
 describe("Test Flash Mint liquidator on MakerDAO", () => {
   let snapshotId: number;
@@ -48,60 +48,24 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .connect(owner)
       .addLiquidator(await liquidator.getAddress());
 
-    daiToken = await ethers.getContractAt(
-      require("../abis/ERC20.json"),
-      config.tokens.dai.address,
-      owner
-    );
-    await Promise.all(
-      [owner, liquidator, borrower].map(async (acc) => {
-        const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
-          await acc.getAddress(),
-          config.tokens.dai.balanceOfStorageSlot
-        );
-        await hre.ethers.provider.send("hardhat_setStorageAt", [
-          daiToken.address,
-          cropHexString(balanceOfUserStorageSlot),
-          padHexString(parseUnits("10000000").toHexString()),
-        ]);
-      })
-    );
-    usdcToken = await ethers.getContractAt(
-      require("../abis/ERC20.json"),
-      config.tokens.usdc.address,
-      owner
-    );
-    await Promise.all(
-      [owner, liquidator, borrower].map(async (acc) => {
-        const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
-          await acc.getAddress(),
-          config.tokens.usdc.balanceOfStorageSlot
-        );
-        await hre.ethers.provider.send("hardhat_setStorageAt", [
-          usdcToken.address,
-          cropHexString(balanceOfUserStorageSlot),
-          padHexString(parseUnits("10000", 6).toHexString()),
-        ]);
-      })
-    );
-    feiToken = await ethers.getContractAt(
-      require("../abis/ERC20.json"),
-      config.tokens.fei.address,
-      owner
-    );
-    await Promise.all(
-      [owner, liquidator, borrower].map(async (acc) => {
-        const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
-          await acc.getAddress(),
-          config.tokens.fei.balanceOfStorageSlot
-        );
-        await hre.ethers.provider.send("hardhat_setStorageAt", [
-          feiToken.address,
-          cropHexString(balanceOfUserStorageSlot),
-          padHexString(parseUnits("10000").toHexString()),
-        ]);
-      })
-    );
+    ({ token: usdcToken, cToken: cUsdcToken } = await setupToken(
+      config.tokens.usdc,
+      owner,
+      [owner, liquidator, borrower],
+      parseUnits("100000", config.tokens.usdc.decimals)
+    ));
+    ({ token: daiToken, cToken: cDaiToken } = await setupToken(
+      config.tokens.dai,
+      owner,
+      [owner, liquidator, borrower],
+      parseUnits("100000", config.tokens.dai.decimals)
+    ));
+    ({ token: feiToken, cToken: cFeiToken } = await setupToken(
+      config.tokens.fei,
+      owner,
+      [owner, liquidator, borrower],
+      parseUnits("100000", config.tokens.fei.decimals)
+    ));
 
     // get Morpho contract
     morpho = await ethers.getContractAt(
@@ -114,15 +78,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       config.lens,
       owner
     );
-    const poolSetup = await setupCompound(morpho, owner);
-    admin = poolSetup.admin;
-    oracle = poolSetup.oracle;
-    comptroller = poolSetup.comptroller;
-
-    const CTokenABI = require("../abis/CToken.json");
-    cDaiToken = new Contract(config.tokens.dai.cToken, CTokenABI, owner);
-    cUsdcToken = new Contract(config.tokens.usdc.cToken, CTokenABI, owner);
-    cFeiToken = new Contract(config.tokens.fei.cToken, CTokenABI, owner);
+    ({ admin, oracle, comptroller } = await setupCompound(morpho, owner));
 
     await comptroller.connect(admin)._setPriceOracle(oracle.address);
   };
