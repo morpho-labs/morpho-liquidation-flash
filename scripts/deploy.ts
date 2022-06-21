@@ -1,7 +1,9 @@
 import { ethers } from "hardhat";
 
 async function main() {
-  const FlashMintLiquidator = await ethers.getContractFactory("FlashMintLiquidator");
+  const FlashMintLiquidator = await ethers.getContractFactory(
+    "FlashMintLiquidator"
+  );
   const flashMintLiquidator = await FlashMintLiquidator.deploy();
 
   await flashMintLiquidator.deployed();

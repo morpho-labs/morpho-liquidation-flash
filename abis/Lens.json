@@ -1,0 +1,644 @@
+[
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_morphoAddress",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "nonpayable",
+    "type": "constructor"
+  },
+  {
+    "inputs": [],
+    "name": "CompoundOracleFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "MAX_BASIS_POINTS",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "WAD",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenBorrowedAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenCollateralAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_updatedMarkets",
+        "type": "address[]"
+      }
+    ],
+    "name": "computeLiquidationRepayAmount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "toRepay",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "getAllMarkets",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "marketsCreated_",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      }
+    ],
+    "name": "getEnteredMarkets",
+    "outputs": [
+      {
+        "internalType": "address[]",
+        "name": "enteredMarkets_",
+        "type": "address[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "_computeUpdatedIndexes",
+        "type": "bool"
+      }
+    ],
+    "name": "getIndexes",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "newP2PSupplyIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newP2PBorrowIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newPoolSupplyIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "newPoolBorrowIndex",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getMarketConfiguration",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "underlying_",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "isCreated_",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "p2pDisabled_",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "isPaused_",
+        "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "isPartiallyPaused_",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "reserveFactor_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "collateralFactor_",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getMarketData",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "p2pSupplyIndex_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "p2pBorrowIndex_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint32",
+        "name": "lastUpdateBlockNumber_",
+        "type": "uint32"
+      },
+      {
+        "internalType": "uint256",
+        "name": "p2pSupplyDelta_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "p2pBorrowDelta_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "p2pSupplyAmount_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "p2pBorrowAmount_",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getRates",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "p2pSupplyRate_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "p2pBorrowRate_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "poolSupplyRate_",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "poolBorrowRate_",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getUpdatedP2PBorrowIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getUpdatedP2PSupplyIndex",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getUpdatedUserBorrowBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "balanceOnPool",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "balanceInP2P",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalBalance",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getUpdatedUserSupplyBalance",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "balanceOnPool",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "balanceInP2P",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalBalance",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_updatedMarkets",
+        "type": "address[]"
+      }
+    ],
+    "name": "getUserBalanceStates",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "collateralValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "debtValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxDebtValue",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_withdrawnAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_borrowedAmount",
+        "type": "uint256"
+      }
+    ],
+    "name": "getUserHypotheticalBalanceStates",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "debtValue",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "maxDebtValue",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      },
+      {
+        "internalType": "bool",
+        "name": "_computeUpdatedIndexes",
+        "type": "bool"
+      },
+      {
+        "internalType": "contract ICompoundOracle",
+        "name": "_oracle",
+        "type": "address"
+      }
+    ],
+    "name": "getUserLiquidityDataForAsset",
+    "outputs": [
+      {
+        "components": [
+          {
+            "internalType": "uint256",
+            "name": "collateralValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "maxDebtValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "debtValue",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "underlyingPrice",
+            "type": "uint256"
+          },
+          {
+            "internalType": "uint256",
+            "name": "collateralFactor",
+            "type": "uint256"
+          }
+        ],
+        "internalType": "struct Types.AssetLiquidityData",
+        "name": "assetData",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "getUserMaxCapacitiesForAsset",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "withdrawable",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "borrowable",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_user",
+        "type": "address"
+      },
+      {
+        "internalType": "address[]",
+        "name": "_updatedMarkets",
+        "type": "address[]"
+      }
+    ],
+    "name": "isLiquidatable",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "isMarketCreated",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "isMarketCreatedAndNotPaused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "_poolTokenAddress",
+        "type": "address"
+      }
+    ],
+    "name": "isMarketCreatedAndNotPausedNorPartiallyPaused",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "morpho",
+    "outputs": [
+      {
+        "internalType": "contract IMorpho",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+]

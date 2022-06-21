@@ -1,8 +1,7 @@
-
+// SPDX-License-Identifier: GNU AGPLv3
 pragma solidity 0.8.13;
 
 interface IERC3156FlashBorrower {
-
     /**
      * @dev Receive a flash loan.
      * @param initiator The initiator of the loan.
