@@ -1,0 +1,27 @@
+specVersion: 0.0.2
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: Morpho
+    network: mainnet
+    source:
+      address: "0x8888882f8f843896699869179fB6E4f7e3B58888"
+      startBlock: 14860866
+      abi: Morpho
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.5
+      language: wasm/assemblyscript
+      entities:
+        - Borrowed
+        - Supplied
+      abis:
+        - name: Morpho
+          file: ./abis/Morpho.json
+      eventHandlers:
+        - event: Borrowed(indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleBorrowed
+        - event: Supplied(indexed address,indexed address,indexed address,uint256,uint256,uint256)
+          handler: handleSupplied
+      file: ./src/mapping.ts
