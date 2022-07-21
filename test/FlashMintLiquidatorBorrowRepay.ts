@@ -24,10 +24,12 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
   let daiToken: Contract;
   let usdcToken: Contract;
   let feiToken: Contract;
+  let wEthToken: Contract;
 
   let cDaiToken: Contract;
   let cUsdcToken: Contract;
   let cFeiToken: Contract;
+  let cEthToken: Contract;
 
   const initialize = async () => {
     [owner, liquidator, borrower] = await ethers.getSigners();
@@ -62,6 +64,12 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     ));
     ({ token: feiToken, cToken: cFeiToken } = await setupToken(
       config.tokens.fei,
+      owner,
+      [owner, liquidator, borrower],
+      parseUnits("100000", config.tokens.fei.decimals)
+    ));
+    ({ cToken: cEthToken, token: wEthToken } = await setupToken(
+      config.tokens.wEth,
       owner,
       [owner, liquidator, borrower],
       parseUnits("100000", config.tokens.fei.decimals)
@@ -308,7 +316,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     );
     const path = ethers.utils.solidityPack(
       ["address", "uint24", "address"],
-      [daiToken.address, config.swapFees.stable, usdcToken.address]
+      [usdcToken.address, config.swapFees.stable, daiToken.address]
     );
     expect(
       await flashLiquidator
@@ -391,11 +399,13 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .div(2)
       .div(pow10(18));
 
-    const debtBalanceBefore = await daiToken.balanceOf(flashLiquidator.address);
+    const collateralBalanceBefore = await usdcToken.balanceOf(
+      flashLiquidator.address
+    );
 
     const path = ethers.utils.solidityPack(
       ["address", "uint24", "address"],
-      [usdcToken.address, config.swapFees.stable, daiToken.address]
+      [daiToken.address, config.swapFees.classic, usdcToken.address]
     );
     expect(
       await flashLiquidator
@@ -409,9 +419,11 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           path
         )
     ).to.emit(flashLiquidator, "Liquidated");
-    const debtBalanceAfter = await daiToken.balanceOf(flashLiquidator.address);
+    const collateralBalanceAfter = await usdcToken.balanceOf(
+      flashLiquidator.address
+    );
     // we swap all the debt
-    expect(debtBalanceAfter.gt(debtBalanceBefore)).to.be.true;
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
   it("Should liquidate a user with a flash loan with FEI debt and USDC collateral (borrow/repay and swap)", async () => {
     const borrowerAddress = await borrower.getAddress();
@@ -454,11 +466,13 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .div(2)
       .div(pow10(18));
 
-    const debtBalanceBefore = await feiToken.balanceOf(flashLiquidator.address);
+    const collateralBalanceBefore = await usdcToken.balanceOf(
+      flashLiquidator.address
+    );
 
     const path = ethers.utils.solidityPack(
       ["address", "uint24", "address"],
-      [usdcToken.address, config.swapFees.classic, feiToken.address]
+      [feiToken.address, config.swapFees.classic, usdcToken.address]
     );
     expect(
       await flashLiquidator
@@ -472,8 +486,144 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           path
         )
     ).to.emit(flashLiquidator, "Liquidated");
-    const debtBalanceAfter = await feiToken.balanceOf(flashLiquidator.address);
-    expect(debtBalanceAfter.gt(debtBalanceBefore)).to.be.true;
+    const collateralBalanceAfter = await usdcToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+  });
+  it("Should liquidate a user with a flash loan, WETH debt and USDC collateral (borrow/repay wrap and swap)", async () => {
+    const borrowerAddress = await borrower.getAddress();
+    const toSupply = parseUnits("10", 6);
+    await usdcToken.connect(borrower).approve(morpho.address, toSupply);
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
+        cUsdcToken.address,
+        borrowerAddress,
+        toSupply
+      );
+
+    // price is 1/1 between fei & usd
+    const { maxDebtValue: toBorrowUSD } = await lens.getUserBalanceStates(
+      borrowerAddress,
+      [cUsdcToken.address, cEthToken.address]
+    );
+    const ethPrice = await oracle.getUnderlyingPrice(cEthToken.address);
+    const toBorrow = toBorrowUSD.mul(pow10(18)).div(ethPrice);
+    await morpho
+      .connect(borrower)
+      ["borrow(address,uint256)"](cEthToken.address, toBorrow);
+
+    await oracle.setUnderlyingPrice(
+      cUsdcToken.address,
+      parseUnits("0.98", 18 * 2 - 6)
+    );
+    // Mine block
+
+    await hre.network.provider.send("evm_mine", []);
+
+    const { onPool: debtOnPool, inP2P: debtInP2P } =
+      await morpho.borrowBalanceInOf(cEthToken.address, borrower.getAddress());
+
+    const debtPoolIndex = await cEthToken.borrowIndex();
+    const debtP2PIndex = await morpho.p2pBorrowIndex(cEthToken.address);
+    const toLiquidate = debtOnPool
+      .mul(debtPoolIndex)
+      .add(debtInP2P.mul(debtP2PIndex))
+      .div(2)
+      .div(pow10(18));
+
+    const collateralBalanceBefore = await usdcToken.balanceOf(
+      flashLiquidator.address
+    );
+
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [wEthToken.address, config.swapFees.classic, usdcToken.address]
+    );
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          cEthToken.address,
+          cUsdcToken.address,
+          borrowerAddress,
+          toLiquidate,
+          true,
+          path
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
+    const collateralBalanceAfter = await usdcToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+  });
+  it("Should liquidate a user with a flash loan, USDC debt and WETH collateral (borrow/repay unwrap and swap)", async () => {
+    const borrowerAddress = await borrower.getAddress();
+
+    const toSupply = parseUnits("1", 18);
+    await wEthToken.connect(borrower).approve(morpho.address, toSupply);
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
+        cEthToken.address,
+        borrowerAddress,
+        toSupply
+      );
+    const { maxDebtValue: toBorrowUSD } = await lens.getUserBalanceStates(
+      borrowerAddress,
+      [cUsdcToken.address, cEthToken.address]
+    );
+    const usdcPrice = await oracle.getUnderlyingPrice(cUsdcToken.address);
+    const toBorrow = toBorrowUSD.mul(pow10(18)).div(usdcPrice); // 6 decimals
+    await morpho
+      .connect(borrower)
+      ["borrow(address,uint256)"](cUsdcToken.address, toBorrow);
+
+    const ethPrice = await oracle.getUnderlyingPrice(cEthToken.address);
+    await oracle.setUnderlyingPrice(
+      cEthToken.address,
+      ethPrice.mul(99).div(100)
+    );
+    // Mine block
+
+    await hre.network.provider.send("evm_mine", []);
+
+    const { onPool: debtOnPool, inP2P: debtInP2P } =
+      await morpho.borrowBalanceInOf(cUsdcToken.address, borrower.getAddress());
+
+    const debtPoolIndex = await cUsdcToken.borrowIndex();
+    const debtP2PIndex = await morpho.p2pBorrowIndex(cUsdcToken.address);
+    const toLiquidate = debtOnPool
+      .mul(debtPoolIndex)
+      .add(debtInP2P.mul(debtP2PIndex))
+      .div(2)
+      .div(pow10(18));
+
+    const collateralBalanceBefore = await wEthToken.balanceOf(
+      flashLiquidator.address
+    );
+
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [usdcToken.address, config.swapFees.classic, wEthToken.address]
+    );
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          cUsdcToken.address,
+          cEthToken.address,
+          borrowerAddress,
+          toLiquidate,
+          true,
+          path
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
+    const collateralBalanceAfter = await wEthToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
   it("Should the admin be able to withdraw funds", async () => {

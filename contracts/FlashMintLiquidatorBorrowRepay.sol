@@ -3,7 +3,6 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBase.sol";
-
 contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
     using SafeTransferLib for ERC20;
     using CompoundMath for uint256;
@@ -108,8 +107,8 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
                 _flashLoanParams.toLiquidate
             );
             require(err == 0, "FlashLoan: borrow on Compound failed");
-            if (_flashLoanParams.borrowedUnderlying == address(cEth)) {
-                IWETH(wEth).deposit{value: _flashLoanParams.toLiquidate}();
+            if (_flashLoanParams.borrowedUnderlying == address(wEth)) {
+                wEth.deposit{value: _flashLoanParams.toLiquidate}();
             }
         }
 
@@ -126,15 +125,14 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
 
         if (_flashLoanParams.borrowedUnderlying != _flashLoanParams.collateralUnderlying) {
             // need a swap
-            ERC20(_flashLoanParams.collateralUnderlying).safeApprove(address(uniswapV3Router), seized);
             ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
 
-        uint256 minOut = seized.mul(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral)).div(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed)) * (BASIS_POINTS - slippageTolerance) / BASIS_POINTS;
-            uint256 out = _doSecondSwap(_flashLoanParams.path, seized, minOut);
-            if (out < _flashLoanParams.toLiquidate) revert NoProfitableLiquidation();
+        uint256 maxIn = _flashLoanParams.toLiquidate.mul(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed)).div(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral)) * (BASIS_POINTS + slippageTolerance) / BASIS_POINTS;
+            ERC20(_flashLoanParams.collateralUnderlying).safeApprove(address(uniswapV3Router), maxIn);
+            uint256 amountIn = _doSecondSwap(_flashLoanParams.path, _flashLoanParams.toLiquidate, maxIn);
         }
         if (_flashLoanParams.borrowedUnderlying != address(dai)) {
-            if (_flashLoanParams.borrowedUnderlying == address(cEth)) {
+            if (_flashLoanParams.borrowedUnderlying == address(wEth)) {
                 wEth.withdraw(_flashLoanParams.toLiquidate);
                 ICEth(address(cEth)).repayBorrow{value: _flashLoanParams.toLiquidate}();
             } else {
@@ -160,12 +158,12 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
         );
     }
 
-    function _doSecondSwap(bytes memory _path, uint256 _amount, uint256 _minOut)
+    function _doSecondSwap(bytes memory _path, uint256 _amount, uint256 _maxIn)
         internal
-        returns (uint256 amountOut)
+        returns (uint256 amountIn)
     {
-        amountOut = uniswapV3Router.exactInput(
-            ISwapRouter.ExactInputParams(_path, address(this), block.timestamp, _amount, _minOut)
+        amountIn = uniswapV3Router.exactOutput(
+            ISwapRouter.ExactOutputParams(_path, address(this), block.timestamp, _amount, _maxIn )
         );
     }
 

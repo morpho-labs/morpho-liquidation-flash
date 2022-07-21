@@ -29,6 +29,12 @@ export default {
       balanceOfStorageSlot: 0,
       decimals: 18,
     },
+    wEth: {
+      address: "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+      cToken: "0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5",
+      decimals: 18,
+      balanceOfStorageSlot: 3,
+    },
   },
   swapFees: {
     exotic: 3000,
