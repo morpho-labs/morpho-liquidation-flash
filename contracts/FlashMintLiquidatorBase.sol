@@ -3,6 +3,8 @@ pragma solidity 0.8.13;
 
 import "./interface/IERC3156FlashLender.sol";
 import "./interface/IERC3156FlashBorrower.sol";
+import "./interface/IWETH.sol";
+
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 
@@ -29,8 +31,7 @@ abstract contract FlashMintLiquidatorBase is
         address liquidator;
         address borrower;
         uint256 toLiquidate;
-        uint24 firstSwapFees;
-        uint24 secondSwapFees;
+        bytes path;
     }
 
     struct LiquidateParams {
@@ -48,6 +49,8 @@ abstract contract FlashMintLiquidatorBase is
     error UnknownLender();
 
     error UnknownInitiator();
+
+    error NoProfitableLiquidation();
 
     event Liquidated(
         address indexed liquidator,
@@ -72,7 +75,7 @@ abstract contract FlashMintLiquidatorBase is
     ICToken public immutable cDai;
     ERC20 public immutable dai;
     ICToken public immutable cEth;
-    ERC20 public immutable wEth;
+    IWETH public immutable wEth;
 
     constructor(
         IERC3156FlashLender _lender,
@@ -84,7 +87,7 @@ abstract contract FlashMintLiquidatorBase is
         cDai = _cDai;
         dai = ERC20(_cDai.underlying());
         cEth = ICToken(morpho.cEth());
-        wEth = ERC20(morpho.wEth());
+        wEth = IWETH(morpho.wEth());
     }
 
     function _liquidateInternal(LiquidateParams memory _liquidateParams)
@@ -111,18 +114,22 @@ abstract contract FlashMintLiquidatorBase is
         );
     }
 
-    function _liquidateWithFlashLoan(FlashLoanParams memory _flashLoanParams)
-        internal
-        returns (uint256 seized_)
-    {
+    function _liquidateWithFlashLoan(
+        FlashLoanParams memory _flashLoanParams,
+        uint256 _collateralFactor
+    ) internal returns (uint256 seized_) {
         bytes memory data = _encodeData(_flashLoanParams);
 
         uint256 daiToFlashLoan = _getDaiToFlashloan(
             address(_flashLoanParams.poolTokenBorrowed),
-            _flashLoanParams.toLiquidate
+            _flashLoanParams.toLiquidate,
+            _collateralFactor
         );
 
-        dai.safeApprove(address(lender), daiToFlashLoan + lender.flashFee(address(dai), daiToFlashLoan));
+        dai.safeApprove(
+            address(lender),
+            daiToFlashLoan + lender.flashFee(address(dai), daiToFlashLoan)
+        );
 
         uint256 balanceBefore = ERC20(_flashLoanParams.collateralUnderlying).balanceOf(
             address(this)
@@ -137,15 +144,18 @@ abstract contract FlashMintLiquidatorBase is
         emit FlashLoan(msg.sender, daiToFlashLoan);
     }
 
-    function _getDaiToFlashloan(address _poolTokenToRepay, uint256 _amountToRepay)
-        internal
-        view
-        returns (uint256 amountToFlashLoan_)
-    {
+    function _getDaiToFlashloan(
+        address _poolTokenToRepay,
+        uint256 _amountToRepay,
+        uint256 collateralFactor
+    ) internal view returns (uint256 amountToFlashLoan_) {
         ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
         uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
         uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenToRepay);
-        amountToFlashLoan_ = _amountToRepay.mul(borrowedTokenPrice).div(daiPrice);
+        amountToFlashLoan_ =
+            (_amountToRepay.mul(borrowedTokenPrice).mul(1e18 + collateralFactor).div(daiPrice) *
+                107) /
+            100; // for rounding errors
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)
@@ -161,8 +171,7 @@ abstract contract FlashMintLiquidatorBase is
             _flashLoanParams.liquidator,
             _flashLoanParams.borrower,
             _flashLoanParams.toLiquidate,
-            _flashLoanParams.firstSwapFees,
-            _flashLoanParams.secondSwapFees
+            _flashLoanParams.path
         );
     }
 
@@ -171,10 +180,22 @@ abstract contract FlashMintLiquidatorBase is
         pure
         returns (FlashLoanParams memory _flashLoanParams)
     {
-        _flashLoanParams = abi.decode(data, (FlashLoanParams));
+        (
+            _flashLoanParams.collateralUnderlying,
+            _flashLoanParams.borrowedUnderlying,
+            _flashLoanParams.poolTokenCollateral,
+            _flashLoanParams.poolTokenBorrowed,
+            _flashLoanParams.liquidator,
+            _flashLoanParams.borrower,
+            _flashLoanParams.toLiquidate,
+            _flashLoanParams.path
+        ) = abi.decode(
+            data,
+            (address, address, address, address, address, address, uint256, bytes)
+        );
     }
 
     function _getUnderlying(address _poolToken) internal view returns (ERC20 underlying_) {
-        underlying_ = _poolToken == address(cEth) ? wEth : ERC20(ICToken(_poolToken).underlying());
+        underlying_ = _poolToken == address(cEth) ? ERC20(address(wEth)) : ERC20(ICToken(_poolToken).underlying());
     }
 }

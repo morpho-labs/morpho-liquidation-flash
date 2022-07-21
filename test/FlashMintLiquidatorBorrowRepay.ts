@@ -33,7 +33,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     [owner, liquidator, borrower] = await ethers.getSigners();
 
     const FlashMintLiquidator = await ethers.getContractFactory(
-      "FlashMintLiquidatorDoubleSwap"
+      "FlashMintLiquidatorBorrowRepay"
     );
     flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
       config.lender,
@@ -154,8 +154,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           borrowerAddress,
           toLiquidate,
           true,
-          0,
-          0
+          "0x"
         )
     ).to.emit(flashLiquidator, "Liquidated");
 
@@ -223,7 +222,17 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
+    const path = ethers.utils.defaultAbiCoder.encode(
+      ["address", "uint24", "address"],
+      [daiToken.address, 1000, daiToken.address]
+    );
+    // const route = await alphaRouter.route(
+    //   toLiquidate.mul(107).div(100).toString(),
+    //   getQuoteToken(USDC_MAINNET, USDT_MAINNET, TradeType.EXACT_INPUT),
+    //   TradeType.EXACT_INPUT
+    // );
 
+    // console.log({ route });
     expect(
       await flashLiquidator
         .connect(liquidator)
@@ -233,8 +242,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           borrowerAddress,
           toLiquidate,
           true,
-          0,
-          0
+          path
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await daiToken.balanceOf(
@@ -243,7 +251,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it("Should liquidate a user with a flash loan and stake bonus tokens with debt swap", async () => {
+  it("Should liquidate a user with a flash loan and stake bonus tokens with USDC debt & DAI collateral (borrow/repay and swap)", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
@@ -298,6 +306,10 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const collateralBalanceFlashLiquidatorBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [daiToken.address, config.swapFees.stable, usdcToken.address]
+    );
     expect(
       await flashLiquidator
         .connect(liquidator)
@@ -307,8 +319,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           borrowerAddress,
           toLiquidate,
           true,
-          config.swapFees.stable,
-          0
+          path
         )
     ).to.emit(flashLiquidator, "Liquidated");
     const collateralBalanceAfter = await daiToken.balanceOf(
@@ -325,7 +336,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     ).to.be.true;
     expect(collateralBalanceAfter.gte(collateralBalanceBefore)).to.be.true;
   });
-  it("Should liquidate a user with a flash loan and stake bonus tokens with collateral swap", async () => {
+  it("Should liquidate a user with a flash loan with DAI debt and USDC collateral (no borrow/repay and swap)", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10", 6);
     await usdcToken.connect(borrower).approve(morpho.address, toSupply);
@@ -380,10 +391,12 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .div(2)
       .div(pow10(18));
 
-    const collateralBalanceBefore = await usdcToken.balanceOf(
-      flashLiquidator.address
-    );
+    const debtBalanceBefore = await daiToken.balanceOf(flashLiquidator.address);
 
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [usdcToken.address, config.swapFees.stable, daiToken.address]
+    );
     expect(
       await flashLiquidator
         .connect(liquidator)
@@ -393,16 +406,14 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           borrowerAddress,
           toLiquidate,
           true,
-          0,
-          config.swapFees.stable
+          path
         )
     ).to.emit(flashLiquidator, "Liquidated");
-    const collateralBalanceAfter = await usdcToken.balanceOf(
-      flashLiquidator.address
-    );
-    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+    const debtBalanceAfter = await daiToken.balanceOf(flashLiquidator.address);
+    // we swap all the debt
+    expect(debtBalanceAfter.gt(debtBalanceBefore)).to.be.true;
   });
-  it("Should liquidate a user with a flash loan and stake bonus tokens with two swaps", async () => {
+  it("Should liquidate a user with a flash loan with FEI debt and USDC collateral (borrow/repay and swap)", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10", 6);
     await usdcToken.connect(borrower).approve(morpho.address, toSupply);
@@ -443,10 +454,12 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       .div(2)
       .div(pow10(18));
 
-    const collateralBalanceBefore = await usdcToken.balanceOf(
-      flashLiquidator.address
-    );
+    const debtBalanceBefore = await feiToken.balanceOf(flashLiquidator.address);
 
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [usdcToken.address, config.swapFees.classic, feiToken.address]
+    );
     expect(
       await flashLiquidator
         .connect(liquidator)
@@ -456,14 +469,11 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           borrowerAddress,
           toLiquidate,
           true,
-          config.swapFees.classic,
-          config.swapFees.stable
+          path
         )
     ).to.emit(flashLiquidator, "Liquidated");
-    const collateralBalanceAfter = await usdcToken.balanceOf(
-      flashLiquidator.address
-    );
-    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+    const debtBalanceAfter = await feiToken.balanceOf(flashLiquidator.address);
+    expect(debtBalanceAfter.gt(debtBalanceBefore)).to.be.true;
   });
 
   it("Should the admin be able to withdraw funds", async () => {

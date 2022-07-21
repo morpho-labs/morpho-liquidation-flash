@@ -19,6 +19,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: process.env.MAINNET_URL ?? "",
         enabled: true,
+        blockNumber: 15184961,
       },
     },
     ropsten: {
@@ -40,7 +41,7 @@ const config: HardhatUserConfig = {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
   mocha: {
-    timeout: 300000,
+    timeout: 3000000,
   },
 };
 

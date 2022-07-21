@@ -13,8 +13,11 @@
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
     "@openzeppelin/contracts": "4.6.0",
     "@rari-capital/solmate": "6.4.0",
+    "@uniswap/sdk-core": "^3.0.1",
+    "@uniswap/smart-order-router": "^2.7.0",
     "@uniswap/v3-core": "1.0.1",
     "@uniswap/v3-periphery": "1.4.1",
+    "@uniswap/v3-sdk": "^3.9.0",
     "hardhat": "^2.9.6",
     "slot20": "^0.0.3"
   },
