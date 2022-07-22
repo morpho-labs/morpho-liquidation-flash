@@ -1,6 +1,6 @@
 export default {
   morpho: "0x8888882f8f843896699869179fB6E4f7e3B58888",
-  lens: "0xe8cfa2edbdc110689120724c4828232e473be1b2",
+  lens: "0x930f1b46e1d081ec1524efd95752be3ece51ef67",
   univ3Router: "0xe592427a0aece92de3edee1f18e0157c05861564", // https://etherscan.io/address/0xe592427a0aece92de3edee1f18e0157c05861564
   lender: "0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853", // https://etherscan.io/address/0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853#code
   slippageTolerance: 100, // 1%

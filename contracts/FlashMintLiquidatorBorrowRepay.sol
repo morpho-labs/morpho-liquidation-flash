@@ -3,6 +3,7 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBase.sol";
+
 contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
     using SafeTransferLib for ERC20;
     using CompoundMath for uint256;
@@ -127,9 +128,20 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
             // need a swap
             ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
 
-        uint256 maxIn = _flashLoanParams.toLiquidate.mul(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed)).div(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral)) * (BASIS_POINTS + slippageTolerance) / BASIS_POINTS;
-            ERC20(_flashLoanParams.collateralUnderlying).safeApprove(address(uniswapV3Router), maxIn);
-            uint256 amountIn = _doSecondSwap(_flashLoanParams.path, _flashLoanParams.toLiquidate, maxIn);
+            uint256 maxIn = (_flashLoanParams
+                .toLiquidate
+                .mul(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed))
+                .div(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral)) *
+                (BASIS_POINTS + slippageTolerance)) / BASIS_POINTS;
+            ERC20(_flashLoanParams.collateralUnderlying).safeApprove(
+                address(uniswapV3Router),
+                maxIn
+            );
+            uint256 amountIn = _doSecondSwap(
+                _flashLoanParams.path,
+                _flashLoanParams.toLiquidate,
+                maxIn
+            );
         }
         if (_flashLoanParams.borrowedUnderlying != address(dai)) {
             if (_flashLoanParams.borrowedUnderlying == address(wEth)) {
@@ -158,15 +170,20 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
         );
     }
 
-    function _doSecondSwap(bytes memory _path, uint256 _amount, uint256 _maxIn)
-        internal
-        returns (uint256 amountIn)
-    {
+    function _doSecondSwap(
+        bytes memory _path,
+        uint256 _amount,
+        uint256 _maxIn
+    ) internal returns (uint256 amountIn) {
         amountIn = uniswapV3Router.exactOutput(
-            ISwapRouter.ExactOutputParams(_path, address(this), block.timestamp, _amount, _maxIn )
+            ISwapRouter.ExactOutputParams(_path, address(this), block.timestamp, _amount, _maxIn)
         );
     }
 
     /// @dev Allows to receive ETH.
     receive() external payable {}
+
+    function enterMarkets(address[] calldata markets) external onlyOwner {
+        morpho.comptroller().enterMarkets(markets);
+    }
 }

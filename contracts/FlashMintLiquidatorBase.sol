@@ -196,6 +196,8 @@ abstract contract FlashMintLiquidatorBase is
     }
 
     function _getUnderlying(address _poolToken) internal view returns (ERC20 underlying_) {
-        underlying_ = _poolToken == address(cEth) ? ERC20(address(wEth)) : ERC20(ICToken(_poolToken).underlying());
+        underlying_ = _poolToken == address(cEth)
+            ? ERC20(address(wEth))
+            : ERC20(ICToken(_poolToken).underlying());
     }
 }

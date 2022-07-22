@@ -234,13 +234,6 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       ["address", "uint24", "address"],
       [daiToken.address, 1000, daiToken.address]
     );
-    // const route = await alphaRouter.route(
-    //   toLiquidate.mul(107).div(100).toString(),
-    //   getQuoteToken(USDC_MAINNET, USDT_MAINNET, TradeType.EXACT_INPUT),
-    //   TradeType.EXACT_INPUT
-    // );
-
-    // console.log({ route });
     expect(
       await flashLiquidator
         .connect(liquidator)
@@ -301,10 +294,9 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     // Mine block
 
     await hre.network.provider.send("evm_mine", []);
-
-    const { totalBalance } = await lens.getUpdatedUserBorrowBalance(
-      borrowerAddress,
-      cUsdcToken.address
+    const { totalBalance } = await lens.getCurrentBorrowBalanceInOf(
+      cUsdcToken.address,
+      borrowerAddress
     );
     const toLiquidate = totalBalance.div(2);
 
