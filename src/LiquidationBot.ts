@@ -7,6 +7,7 @@ import stablecoins from "./constant/stablecoins";
 import { ethers } from "hardhat";
 import config from "../config";
 import underlyings from "./constant/underlyings";
+import { getPoolData } from "./uniswap/pools";
 
 export interface LiquidationBotSettings {
   profitableThresholdUSD: BigNumber;
@@ -128,7 +129,6 @@ export default class LiquidationBot {
   getPath(borrowMarket: string, collateralMarket: string) {
     borrowMarket = borrowMarket.toLowerCase();
     collateralMarket = collateralMarket.toLowerCase();
-
     if (borrowMarket === collateralMarket) return "0x";
     if (
       [underlyings[borrowMarket], underlyings[collateralMarket]].includes(
@@ -186,6 +186,40 @@ export default class LiquidationBot {
     this.logger.log(tx.hash);
     const receipt = await tx.wait().catch(this.logError.bind(this));
     if (receipt) this.logger.log(`Gas used: ${receipt.gasUsed.toString()}`);
+  }
+
+  async checkPoolLiquidity(borrowMarket: string, collateralMarket: string) {
+    borrowMarket = borrowMarket.toLowerCase();
+    collateralMarket = collateralMarket.toLowerCase();
+    let pools: any[] = [];
+    if (
+      stablecoins.includes(borrowMarket) &&
+      stablecoins.includes(collateralMarket)
+    ) {
+      const data = await getPoolData(
+        underlyings[borrowMarket],
+        underlyings[collateralMarket]
+      );
+      pools.push(data);
+    } else if (
+      [underlyings[borrowMarket], underlyings[collateralMarket]].includes(
+        LiquidationBot.W_ETH
+      )
+    ) {
+      const data = await getPoolData(
+        underlyings[borrowMarket],
+        underlyings[collateralMarket]
+      );
+      pools.push(data);
+    } else {
+      const newPools = await Promise.all([
+        getPoolData(underlyings[borrowMarket], LiquidationBot.W_ETH),
+        getPoolData(underlyings[collateralMarket], LiquidationBot.W_ETH),
+      ]);
+      pools = [...pools, ...newPools];
+    }
+    console.log(JSON.stringify(pools, null, 4));
+    return pools;
   }
 
   logError(error: object) {

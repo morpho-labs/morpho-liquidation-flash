@@ -35,6 +35,24 @@ export default {
       decimals: 18,
       balanceOfStorageSlot: 3,
     },
+    wBtc: {
+      address: "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599",
+      cToken: "0xccf4429db6322d5c611ee964527d42e5d685dd6a",
+      decimals: 8,
+      balanceOfStorageSlot: 0,
+    },
+    comp: {
+      address: "0xc00e94cb662c3520282e6f5717214004a7f26888",
+      cToken: "0x70e36f6bf80a52b3b46b3af8e106cc0ed743e8e4",
+      decimals: 18,
+      balanceOfStorageSlot: 1,
+    },
+    uni: {
+      address: "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
+      cToken: "0x35a18000230da775cac24873d00ff85bccded550",
+      decimals: 18,
+      balanceOfStorageSlot: 4,
+    },
   },
   swapFees: {
     exotic: 3000,

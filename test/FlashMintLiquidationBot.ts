@@ -29,11 +29,13 @@ describe("Test Liquidation Bot", () => {
   let usdcToken: Contract;
   let feiToken: Contract;
   let wEthToken: Contract;
+  let compToken: Contract;
 
   let cDaiToken: Contract;
   let cUsdcToken: Contract;
   let cFeiToken: Contract;
   let cEthToken: Contract;
+  let cCompToken: Contract;
 
   let bot: LiquidationBot;
   let fetcher: Fetcher;
@@ -66,7 +68,7 @@ describe("Test Liquidation Bot", () => {
       config.tokens.dai,
       owner,
       [owner, liquidator, borrower, liquidableUser],
-      parseUnits("100000", config.tokens.dai.decimals)
+      parseUnits("1000000000", config.tokens.dai.decimals)
     ));
     ({ token: feiToken, cToken: cFeiToken } = await setupToken(
       config.tokens.fei,
@@ -78,7 +80,13 @@ describe("Test Liquidation Bot", () => {
       config.tokens.wEth,
       owner,
       [owner, liquidator, borrower, liquidableUser],
-      parseUnits("100000", config.tokens.fei.decimals)
+      parseUnits("100000", config.tokens.wEth.decimals)
+    ));
+    ({ cToken: cCompToken, token: compToken } = await setupToken(
+      config.tokens.comp,
+      owner,
+      [owner, liquidator, borrower, liquidableUser],
+      parseUnits("10000000", config.tokens.comp.decimals)
     ));
 
     // get Morpho contract
@@ -436,6 +444,76 @@ describe("Test Liquidation Bot", () => {
       params.debtMarket.market,
       params.collateralMarket.market
     );
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          params.debtMarket.market,
+          params.collateralMarket.market,
+          params.userAddress,
+          toRepay,
+          true,
+          path
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
+  });
+  it("Should liquidate a debt of COMP", async () => {
+    const borrowerAddress = await borrower.getAddress();
+    const amount = 15_000;
+    const toSupply = parseUnits(amount.toString());
+
+    await daiToken.connect(borrower).approve(morpho.address, toSupply);
+
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
+        cDaiToken.address,
+        borrowerAddress,
+        toSupply
+      );
+    const { maxDebtValue: toBorrowUSD } = await lens.getUserBalanceStates(
+      borrowerAddress,
+      [cCompToken.address]
+    );
+    const compPrice: BigNumber = await oracle.getUnderlyingPrice(
+      cCompToken.address
+    );
+    const toBorrow = toBorrowUSD.mul(pow10(18)).div(compPrice);
+    await morpho
+      .connect(borrower)
+      ["borrow(address,uint256)"](cCompToken.address, toBorrow);
+    await oracle.setUnderlyingPrice(
+      cCompToken.address,
+      compPrice.mul(101).div(100)
+    );
+    // Mine block
+
+    await hre.network.provider.send("evm_mine", []);
+
+    const usersToLiquidate = await bot.computeLiquidableUsers();
+    expect(usersToLiquidate).to.have.lengthOf(2);
+    const userToLiquidate = usersToLiquidate.find(
+      (u) => u.address.toLowerCase() === borrowerAddress.toLowerCase()
+    );
+    expect(userToLiquidate).to.not.be.undefined;
+    const params = await bot.getUserLiquidationParams(borrowerAddress);
+
+    const toRepay = await lens.computeLiquidationRepayAmount(
+      borrowerAddress,
+      params.debtMarket.market,
+      params.collateralMarket.market,
+      [params.collateralMarket.market, params.debtMarket.market]
+    );
+
+    expect(params.debtMarket.market.toLowerCase()).eq(
+      cCompToken.address.toLowerCase()
+    );
+
+    const path = bot.getPath(
+      params.debtMarket.market,
+      params.collateralMarket.market
+    );
+
     expect(
       await flashLiquidator
         .connect(liquidator)

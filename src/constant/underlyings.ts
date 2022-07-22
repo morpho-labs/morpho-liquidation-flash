@@ -9,4 +9,10 @@ export default {
     "0x956f47f50a910163d8bf957cf5846d573e7f87ca".toLowerCase(), // FEI
   ["0x4Ddc2D193948926D02f9B1fE9e1daa0718270ED5".toLowerCase()]:
     "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2".toLowerCase(), // WETH
+  ["0xccf4429db6322d5c611ee964527d42e5d685dd6a".toLowerCase()]:
+    "0x2260fac5e5542a773aa44fbcfedf7c193bc2c599".toLowerCase(), // WBTC
+  ["0x70e36f6bf80a52b3b46b3af8e106cc0ed743e8e4".toLowerCase()]:
+    "0xc00e94cb662c3520282e6f5717214004a7f26888".toLowerCase(), // COMP
+  ["0x35a18000230da775cac24873d00ff85bccded550".toLowerCase()]:
+    "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984".toLowerCase(), // UNI
 };
