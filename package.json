@@ -7,15 +7,22 @@
   "license": "MIT",
   "scripts": {
     "test": "yarn hardhat test",
-    "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write"
+    "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write",
+    "build:bot": "tsc"
   },
   "dependencies": {
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
     "@openzeppelin/contracts": "4.6.0",
     "@rari-capital/solmate": "6.4.0",
+    "@uniswap/sdk-core": "^3.0.1",
+    "@uniswap/smart-order-router": "^2.7.0",
     "@uniswap/v3-core": "1.0.1",
     "@uniswap/v3-periphery": "1.4.1",
+    "@uniswap/v3-sdk": "^3.9.0",
+    "aws-sdk": "^2.1181.0",
+    "axios": "^0.27.2",
     "hardhat": "^2.9.6",
+    "serverless": "^3.21.0",
     "slot20": "^0.0.3"
   },
   "devDependencies": {
@@ -40,7 +47,7 @@
     "eslint-plugin-prettier": "^3.4.0",
     "eslint-plugin-promise": "^5.1.0",
     "ethereum-waffle": "^3.0.0",
-    "ethers": "^5.0.0",
+    "ethers": "^5.6.9",
     "hardhat-gas-reporter": "^1.0.8",
     "prettier": "^2.3.2",
     "prettier-plugin-solidity": "^1.0.0-beta.13",

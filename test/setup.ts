@@ -3,7 +3,6 @@ import hre, { ethers } from "hardhat";
 import { parseUnits } from "ethers/lib/utils";
 import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
 import config from "../config";
-
 export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await morpho.getAllMarkets();
 
@@ -32,7 +31,6 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
       );
     })
   );
-
   await oracle.setUnderlyingPrice(
     config.tokens.dai.cToken,
     parseUnits("1", 18 * 2 - 18)

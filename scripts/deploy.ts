@@ -4,7 +4,7 @@ import * as fs from "fs";
 
 async function main() {
   const FlashMintLiquidator = await ethers.getContractFactory(
-    "FlashMintLiquidatorDoubleSwap"
+    "FlashMintLiquidatorBorrowRepay"
   );
   const transaction = await FlashMintLiquidator.getDeployTransaction(
     config.lender,
@@ -14,7 +14,7 @@ async function main() {
     config.slippageTolerance
   );
   await fs.writeFileSync(
-    `deployments/FlashMintLiquidator.json`,
+    `deployments/FlashMintLiquidatorBorrowRepay.json`,
     JSON.stringify(transaction, null, 2)
   );
 }

@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  Morpho Liquidation Bot deployed using AWS Lambda function
+
+  
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 800
+
+Parameters:
+
+  AlchemyKey:
+    Type: "AWS::SSM::Parameter::Value<String>"
+    Description: The Alchemy key to use for the RPC
+    Default: /stage/morpho/main/prod/liquidation/ALCHEMY_KEY
+
+  PrivateKeySecretId:
+    Type: String
+    Description: The Private key Secret manager name
+    Default: PrivateKeyMainnet
+
+  ScheduledRate:
+    Type: String
+    Description: The Rate for a liquidation check
+    Default: 15 minutes
+
+  LiquidatorContractAddress:
+    Type: String
+    Description: The Liquidator Contract Address
+
+
+Resources:
+  LiquidationBot:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub
+              - "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretId}"
+              - { SecretId: !Ref PrivateKeySecretId }
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub
+              - "rate(${ScheduledRate})"
+              - { ScheduledRate: !Ref ScheduledRate }
+            Enabled: True
+      Environment:
+        Variables:
+          SECRET_ID: !Ref PrivateKeySecretId
+          ALCHEMY_KEY: !Ref AlchemyKey
+          LIQUIDATION_BOT: !Ref LiquidatorContractAddress
+    Metadata:
+      DockerTag: nodejs14.x-v1
+      DockerContext: .
+      Dockerfile: bot.Dockerfile
+
+Outputs:
+  LiquidationBotFunction:
+    Description: "Liquidation Lambda Function ARN"
+    Value: !GetAtt LiquidationBot.Arn

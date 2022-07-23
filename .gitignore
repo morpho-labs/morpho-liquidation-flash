@@ -7,3 +7,7 @@ typechain
 #Hardhat files
 cache
 artifacts
+dist
+
+# AWS SAM files
+.aws-sam
