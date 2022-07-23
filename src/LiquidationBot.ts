@@ -1,14 +1,13 @@
 import { BigNumber, Contract, providers, Signer } from "ethers";
 import { Logger } from "./interfaces/logger";
 import { Fetcher } from "./interfaces/Fetcher";
-import { parseUnits } from "ethers/lib/utils";
+import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { pow10 } from "../test/helpers";
 import stablecoins from "./constant/stablecoins";
 import { ethers } from "hardhat";
 import config from "../config";
 import underlyings from "./constant/underlyings";
-import { getPoolData } from "./uniswap/pools/pools";
-import { UniswapPool } from "./uniswap/pools";
+import { getPoolData, UniswapPool } from "./uniswap/pools";
 
 export interface LiquidationBotSettings {
   profitableThresholdUSD: BigNumber;
@@ -52,9 +51,13 @@ export default class LiquidationBot {
           )) as BigNumber,
         }))
       ).then((healthFactors) =>
-        healthFactors.filter((userHf) =>
-          userHf.hf.lt(LiquidationBot.HF_THRESHOLD)
-        )
+        healthFactors.filter((userHf) => {
+          if (userHf.hf.lt(parseUnits("1.0001")))
+            this.logger.log(
+              `User ${userHf.address} has a low HF (${formatUnits(userHf.hf)})`
+            );
+          return userHf.hf.lt(LiquidationBot.HF_THRESHOLD);
+        })
       );
       liquidableUsers = [...liquidableUsers, ...newLiquidatableUsers];
     }
@@ -123,7 +126,6 @@ export default class LiquidationBot {
   }
 
   async getMarkets() {
-    console.log("get all markets");
     if (this.markets.length === 0)
       this.markets = await this.morpho.getAllMarkets();
     return this.markets;
@@ -184,7 +186,7 @@ export default class LiquidationBot {
   async liquidate(...args: any) {
     const tx: providers.TransactionResponse = await this.liquidator
       .connect(this.signer)
-      .liquidate(...args)
+      .liquidate(...args, { gasLimit: 8_000_000 })
       .catch(this.logError.bind(this));
     this.logger.log(tx.hash);
     const receipt = await tx.wait().catch(this.logError.bind(this));

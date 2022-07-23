@@ -7,7 +7,8 @@
   "license": "MIT",
   "scripts": {
     "test": "yarn hardhat test",
-    "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write"
+    "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write",
+    "build:bot": "tsc"
   },
   "dependencies": {
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
@@ -18,8 +19,10 @@
     "@uniswap/v3-core": "1.0.1",
     "@uniswap/v3-periphery": "1.4.1",
     "@uniswap/v3-sdk": "^3.9.0",
+    "aws-sdk": "^2.1181.0",
     "axios": "^0.27.2",
     "hardhat": "^2.9.6",
+    "serverless": "^3.21.0",
     "slot20": "^0.0.3"
   },
   "devDependencies": {
