@@ -1,4 +1,5 @@
 import axios from "axios";
+import { UniswapPool } from "./pools.types";
 
 export const graphUrl =
   "https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3";
@@ -35,6 +36,6 @@ export const getPoolData = (token1: string, token2: string) => {
     })
     .then((result) => {
       console.log(result.data);
-      return result.data.data;
+      return result.data.data as UniswapPool[];
     });
 };

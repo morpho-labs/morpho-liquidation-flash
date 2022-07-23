@@ -7,7 +7,8 @@ import stablecoins from "./constant/stablecoins";
 import { ethers } from "hardhat";
 import config from "../config";
 import underlyings from "./constant/underlyings";
-import { getPoolData } from "./uniswap/pools";
+import { getPoolData } from "./uniswap/pools/pools";
+import { UniswapPool } from "./uniswap/pools";
 
 export interface LiquidationBotSettings {
   profitableThresholdUSD: BigNumber;
@@ -99,13 +100,14 @@ export default class LiquidationBot {
     let toLiquidate = debtMarket.totalBorrowBalance.div(2);
     if (
       debtMarket.totalBorrowBalanceUSD
-        .mul(107)
+        .mul(107) // Compound rewards
         .div(100)
         .gt(collateralMarket.totalSupplyBalanceUSD)
     )
+      // the collateral cannot cover the debt
       toLiquidate = collateralMarket.totalSupplyBalanceUSD
         .mul(pow10(20))
-        .div(107)
+        .div(107) // Compound rewards
         .div(debtMarket.price);
     const rewardedUSD = toLiquidate
       .mul(debtMarket.price)
@@ -121,6 +123,7 @@ export default class LiquidationBot {
   }
 
   async getMarkets() {
+    console.log("get all markets");
     if (this.markets.length === 0)
       this.markets = await this.morpho.getAllMarkets();
     return this.markets;
@@ -191,7 +194,7 @@ export default class LiquidationBot {
   async checkPoolLiquidity(borrowMarket: string, collateralMarket: string) {
     borrowMarket = borrowMarket.toLowerCase();
     collateralMarket = collateralMarket.toLowerCase();
-    let pools: any[] = [];
+    let pools: UniswapPool[][] = [];
     if (
       stablecoins.includes(borrowMarket) &&
       stablecoins.includes(collateralMarket)
@@ -220,6 +223,47 @@ export default class LiquidationBot {
     }
     console.log(JSON.stringify(pools, null, 4));
     return pools;
+  }
+
+  // async amountAndPathsForMultipleLiquidations(
+  //   borrowMarket: string,
+  //   collateralMarket: string
+  // ) {
+  //   const borrowUnderlying = underlyings[borrowMarket.toLowerCase()];
+  //   const collateralUnderlying = underlyings[collateralMarket.toLowerCase()];
+  //   const pools = await this.checkPoolLiquidity(borrowMarket, collateralMarket);
+  //   console.log(pools);
+  //   if (pools.length === 1) {
+  //     // stable/stable or stable/eth swap
+  //     const [oneSwapPools] = pools;
+  //   }
+  // }
+
+  async run() {
+    const users = await this.computeLiquidableUsers();
+    const liquidationsParams = await Promise.all(
+      users.map((u) => this.getUserLiquidationParams(u.address))
+    );
+    const toLiquidate = liquidationsParams.filter((user) =>
+      this.isProfitable(user.toLiquidate, user.debtMarket.price)
+    );
+    if (toLiquidate.length > 0) {
+      this.logger.log(`${toLiquidate.length} users to liquidate`);
+      for (const userToLiquidate of toLiquidate) {
+        const swapPath = this.getPath(
+          userToLiquidate.debtMarket.market,
+          userToLiquidate.collateralMarket.market
+        );
+        await this.liquidate(
+          userToLiquidate.debtMarket.market,
+          userToLiquidate.collateralMarket.market,
+          userToLiquidate.userAddress,
+          userToLiquidate.toLiquidate,
+          true,
+          swapPath
+        );
+      }
+    }
   }
 
   logError(error: object) {

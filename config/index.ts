@@ -1,9 +1,11 @@
 export default {
+  liquidator: "",
+  oracle: "0x65c816077c29b557bee980ae3cc2dce80204a0c5",
   morpho: "0x8888882f8f843896699869179fB6E4f7e3B58888",
   lens: "0x930f1b46e1d081ec1524efd95752be3ece51ef67",
   univ3Router: "0xe592427a0aece92de3edee1f18e0157c05861564", // https://etherscan.io/address/0xe592427a0aece92de3edee1f18e0157c05861564
   lender: "0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853", // https://etherscan.io/address/0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853#code
-  slippageTolerance: 100, // 1%
+  slippageTolerance: 500, // 5%
   tokens: {
     dai: {
       address: "0x6B175474E89094C44Da98b954EedeAC495271d0F",
@@ -59,4 +61,6 @@ export default {
     classic: 500,
     stable: 100,
   },
+  graphUrl:
+    "https://api.thegraph.com/subgraphs/name/korrigans84/morphocompoundusers",
 };
