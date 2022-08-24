@@ -19,7 +19,7 @@ Parameters:
   PrivateKeySecretId:
     Type: String
     Description: The Private key Secret manager name
-    Default: PrivateKeyMainnet
+    Default: PrivateKeyMainnet-zAzXaF
 
   ScheduledRate:
     Type: String
@@ -55,7 +55,8 @@ Resources:
         Variables:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
-          LIQUIDATION_BOT: !Ref LiquidatorContractAddress
+          LIQUIDATOR_ADDRESS: !Ref LiquidatorContractAddress
+          SECRET_NAME: PrivateKeyMainnet
     Metadata:
       DockerTag: nodejs14.x-v1
       DockerContext: .
