@@ -3,6 +3,8 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBaseAave.sol";
+import "hardhat/console.sol";
+
 contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
     using SafeTransferLib for ERC20;
     using CompoundMath for uint256;
@@ -93,15 +95,18 @@ contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
         return FLASHLOAN_CALLBACK;
     }
 
-    function _flashLoanInternal(
-        FlashLoanParams memory _flashLoanParams,
-        uint256 _amountIn
-    ) internal {
+    function _flashLoanInternal(FlashLoanParams memory _flashLoanParams, uint256 _amountIn)
+        internal
+    {
         if (_flashLoanParams.borrowedUnderlying != address(dai)) {
             dai.safeApprove(address(lendingPool), _amountIn);
             lendingPool.deposit(address(dai), _amountIn, address(this), 0);
             lendingPool.borrow(
-                    _flashLoanParams.borrowedUnderlying, _flashLoanParams.toLiquidate, 2, 0, address(this)
+                _flashLoanParams.borrowedUnderlying,
+                _flashLoanParams.toLiquidate,
+                2,
+                0,
+                address(this)
             );
         }
 
@@ -120,15 +125,18 @@ contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
             // need a swap
             // we use aave oracle
             IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
-
-            uint256 maxIn = (_flashLoanParams
-                .toLiquidate * oracle.getAssetPrice(_flashLoanParams.borrowedUnderlying) * 10^liquidateParams.collateralUnderlying.decimals()
-            / (10^liquidateParams.borrowedUnderlying.decimals() * oracle.getAssetPrice(_flashLoanParams.collateralUnderlying)) *
+            uint256 maxIn = (((_flashLoanParams.toLiquidate *
+                10**liquidateParams.collateralUnderlying.decimals() *
+                oracle.getAssetPrice(_flashLoanParams.borrowedUnderlying)) /
+                oracle.getAssetPrice(_flashLoanParams.collateralUnderlying) /
+                10**liquidateParams.borrowedUnderlying.decimals()) *
                 (BASIS_POINTS + slippageTolerance)) / BASIS_POINTS;
+
             ERC20(_flashLoanParams.collateralUnderlying).safeApprove(
                 address(uniswapV3Router),
                 maxIn
             );
+
             uint256 amountIn = _doSecondSwap(
                 _flashLoanParams.path,
                 _flashLoanParams.toLiquidate,
@@ -136,13 +144,15 @@ contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
             );
         }
         if (_flashLoanParams.borrowedUnderlying != address(dai)) {
-
-                ERC20(_flashLoanParams.borrowedUnderlying).safeApprove(
-                    address(lendingPool),
-                    _flashLoanParams.toLiquidate
-                );
+            ERC20(_flashLoanParams.borrowedUnderlying).safeApprove(
+                address(lendingPool),
+                _flashLoanParams.toLiquidate
+            );
             lendingPool.repay(
-                _flashLoanParams.borrowedUnderlying, _flashLoanParams.toLiquidate, 2, address(this)
+                _flashLoanParams.borrowedUnderlying,
+                _flashLoanParams.toLiquidate,
+                2,
+                address(this)
             );
             // To repay flash loan
             lendingPool.withdraw(address(dai), _amountIn, address(this));
@@ -167,7 +177,4 @@ contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
             ISwapRouter.ExactOutputParams(_path, address(this), block.timestamp, _amount, _maxIn)
         );
     }
-
-    /// @dev Allows to receive ETH.
-    receive() external payable {}
 }

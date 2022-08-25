@@ -10,7 +10,6 @@ import "../interface/aave-v2/aave/IAToken.sol";
 import "../interface/aave-v2/IMorpho.sol";
 import "../interface/aave-v2/libraries/aave/ReserveConfiguration.sol";
 
-
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 
 import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
@@ -87,7 +86,7 @@ abstract contract FlashMintLiquidatorBaseAave is
     constructor(
         IERC3156FlashLender _lender,
         IMorpho _morpho,
-    ILendingPoolAddressesProvider _addressesProvider,
+        ILendingPoolAddressesProvider _addressesProvider,
         IAToken _aDai
     ) SharedLiquidator() {
         lender = _lender;
@@ -122,9 +121,10 @@ abstract contract FlashMintLiquidatorBaseAave is
         );
     }
 
-    function _liquidateWithFlashLoan(
-        FlashLoanParams memory _flashLoanParams
-    ) internal returns (uint256 seized_) {
+    function _liquidateWithFlashLoan(FlashLoanParams memory _flashLoanParams)
+        internal
+        returns (uint256 seized_)
+    {
         bytes memory data = _encodeData(_flashLoanParams);
 
         uint256 daiToFlashLoan = _getDaiToFlashloan(
@@ -150,18 +150,24 @@ abstract contract FlashMintLiquidatorBaseAave is
         emit FlashLoan(msg.sender, daiToFlashLoan);
     }
 
-    function _getDaiToFlashloan(
-        address _underlyingToRepay,
-        uint256 _amountToRepay
-    ) internal view returns (uint256 amountToFlashLoan_) {
+    function _getDaiToFlashloan(address _underlyingToRepay, uint256 _amountToRepay)
+        internal
+        view
+        returns (uint256 amountToFlashLoan_)
+    {
         IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
 
-        (uint256 loanToValue,,,, ) = lendingPool.getConfiguration(address(dai)).getParamsMemory();
+        (uint256 loanToValue, , , , ) = lendingPool
+            .getConfiguration(address(dai))
+            .getParamsMemory();
         uint256 daiPrice = oracle.getAssetPrice(address(dai));
         uint256 borrowedTokenPrice = oracle.getAssetPrice(_underlyingToRepay);
         uint256 underlyingDecimals = ERC20(_underlyingToRepay).decimals();
         amountToFlashLoan_ =
-            _amountToRepay * borrowedTokenPrice * 10^DAI_DECIMALS / daiPrice / 10^underlyingDecimals * BASIS_POINTS / loanToValue;
+            (((_amountToRepay * borrowedTokenPrice * 10**DAI_DECIMALS) /
+                daiPrice /
+                10**underlyingDecimals) * BASIS_POINTS) /
+            loanToValue;
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)

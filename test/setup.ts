@@ -104,9 +104,6 @@ export const setupAave = async (morpho: Contract, signer: Signer) => {
       );
     })
   );
-  await oracle.setAssetPrice(config.tokens.dai.address, parseUnits("1"));
-  await oracle.setAssetPrice(config.tokens.usdt.address, parseUnits("1"));
-  await oracle.setAssetPrice(config.tokens.usdc.address, parseUnits("1"));
 
   // @ts-ignore
   const adminAddress = await addressesProvider.owner();

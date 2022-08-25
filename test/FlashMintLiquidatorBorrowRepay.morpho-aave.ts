@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-expressions, node/no-missing-import */
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
-import { Contract, Signer } from "ethers";
+import { BigNumber, Contract, Signer } from "ethers";
 import { setupAave, setupToken } from "./setup";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
@@ -127,8 +127,8 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     console.log(formatUnits(withdrawable));
     await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
 
-    await oracle.setUnderlyingPrice(daiToken.address, parseUnits("0.95"));
-    await oracle.setUnderlyingPrice(usdcToken.address, parseUnits("1.05"));
+    await oracle.setAssetPrice(daiToken.address, parseUnits("0.95"));
+    await oracle.setAssetPrice(usdcToken.address, parseUnits("1.05"));
     // Mine block
 
     await hre.network.provider.send("evm_mine", []);
@@ -165,7 +165,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it.only("Should liquidate a user with a flash loan and a dai collateral (no swap)", async () => {
+  it("Should liquidate a user with a flash loan, borrow/repay on aave and a dai/usdc swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
 
@@ -176,6 +176,11 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
         aDaiToken.address,
         borrowerAddress,
         toSupply
+      );
+    const { totalBalance: totalSupply } =
+      await lens.getCurrentSupplyBalanceInOf(
+        aDaiToken.address,
+        borrowerAddress
       );
     const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
       borrowerAddress,
@@ -191,26 +196,44 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
       borrowerAddress,
       aDaiToken.address
     );
+    // do it manually while the lens is nt updated
+    const toWithdraw = totalSupply.mul(8500 - 7700).div(10_000); // 80% - 77%
 
     let healthFactor = await lens.getUserHealthFactor(borrowerAddress);
-    console.log(formatUnits(healthFactor));
-    console.log(formatUnits(withdrawable));
-    await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
 
-    await oracle.setUnderlyingPrice(daiToken.address, parseUnits("0.95"));
-    await oracle.setUnderlyingPrice(usdcToken.address, parseUnits("1.05"));
+    await morpho.connect(borrower).withdraw(aDaiToken.address, toWithdraw);
+
+    healthFactor = await lens.getUserHealthFactor(borrowerAddress);
+    console.log("Borrower HF:", formatUnits(healthFactor));
+    const daiPrice: BigNumber = await oracle.getAssetPrice(daiToken.address);
+    const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
+
+    await oracle.setAssetPrice(
+      daiToken.address,
+      daiPrice.mul(9_850).div(10_000)
+    );
+    await oracle.setAssetPrice(
+      usdcToken.address,
+      usdcPrice.mul(10_100).div(10_000)
+    );
+
     // Mine block
 
     await hre.network.provider.send("evm_mine", []);
 
     const toLiquidate = borrowable.div(2);
-
+    console.log("Liquidate", toLiquidate.toString());
     const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
 
     healthFactor = await lens.getUserHealthFactor(borrowerAddress);
     console.log(formatUnits(healthFactor));
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      // borrow to collateral
+      [usdcToken.address, config.swapFees.stable, daiToken.address]
+    );
     expect(
       await flashLiquidator
         .connect(liquidator)
@@ -220,7 +243,95 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
           borrowerAddress,
           toLiquidate,
           true,
-          "0x"
+          path
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
+
+    const collateralBalanceAfter = await daiToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+  });
+
+  it("Should liquidate a user with a flash loan, borrow/repay on aave and a dai/usdc swap", async () => {
+    const borrowerAddress = await borrower.getAddress();
+    const toSupply = parseUnits("10");
+
+    await daiToken.connect(borrower).approve(morpho.address, toSupply);
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
+        aDaiToken.address,
+        borrowerAddress,
+        toSupply
+      );
+    const { totalBalance: totalSupply } =
+      await lens.getCurrentSupplyBalanceInOf(
+        aDaiToken.address,
+        borrowerAddress
+      );
+    const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
+      borrowerAddress,
+      aUsdcToken.address
+    );
+
+    await morpho
+      .connect(borrower)
+      ["borrow(address,uint256)"](aUsdcToken.address, borrowable);
+
+    // go to LiquidationThreshold limit
+    const { withdrawable } = await lens.getUserMaxCapacitiesForAsset(
+      borrowerAddress,
+      aDaiToken.address
+    );
+    // do it manually while the lens is nt updated
+    const toWithdraw = totalSupply.mul(8500 - 7700).div(10_000); // 80% - 77%
+
+    let healthFactor = await lens.getUserHealthFactor(borrowerAddress);
+
+    await morpho.connect(borrower).withdraw(aDaiToken.address, toWithdraw);
+
+    healthFactor = await lens.getUserHealthFactor(borrowerAddress);
+    console.log("Borrower HF:", formatUnits(healthFactor));
+    const daiPrice: BigNumber = await oracle.getAssetPrice(daiToken.address);
+    const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
+
+    await oracle.setAssetPrice(
+      daiToken.address,
+      daiPrice.mul(9_850).div(10_000)
+    );
+    await oracle.setAssetPrice(
+      usdcToken.address,
+      usdcPrice.mul(10_100).div(10_000)
+    );
+
+    // Mine block
+
+    await hre.network.provider.send("evm_mine", []);
+
+    const toLiquidate = borrowable.div(2);
+    console.log("Liquidate", toLiquidate.toString());
+    const collateralBalanceBefore = await daiToken.balanceOf(
+      flashLiquidator.address
+    );
+
+    healthFactor = await lens.getUserHealthFactor(borrowerAddress);
+    console.log(formatUnits(healthFactor));
+    const path = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      // borrow to collateral
+      [usdcToken.address, config.swapFees.stable, daiToken.address]
+    );
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          aUsdcToken.address,
+          aDaiToken.address,
+          borrowerAddress,
+          toLiquidate,
+          true,
+          path
         )
     ).to.emit(flashLiquidator, "Liquidated");
 

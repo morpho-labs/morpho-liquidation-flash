@@ -3,6 +3,7 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBase.sol";
+import "hardhat/console.sol";
 
 contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
     using SafeTransferLib for ERC20;
@@ -128,11 +129,13 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
             // need a swap
             ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
 
-            uint256 maxIn = (_flashLoanParams
-                .toLiquidate
-                .mul(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed))
-                .div(oracle.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral)) *
-                (BASIS_POINTS + slippageTolerance)) / BASIS_POINTS;
+            uint256 maxIn = ((_flashLoanParams.toLiquidate *
+                oracle.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed)) * 10) ^
+                (ERC20(_flashLoanParams.collateralUnderlying).decimals() /
+                    oracle.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral) /
+                    10) ^
+                ((ERC20(_flashLoanParams.borrowedUnderlying).decimals() *
+                    (BASIS_POINTS + slippageTolerance)) / BASIS_POINTS);
             ERC20(_flashLoanParams.collateralUnderlying).safeApprove(
                 address(uniswapV3Router),
                 maxIn
@@ -175,6 +178,7 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
         uint256 _amount,
         uint256 _maxIn
     ) internal returns (uint256 amountIn) {
+        console.log(_amount, _maxIn);
         amountIn = uniswapV3Router.exactOutput(
             ISwapRouter.ExactOutputParams(_path, address(this), block.timestamp, _amount, _maxIn)
         );
