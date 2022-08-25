@@ -58,10 +58,73 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
   return { comptroller, oracle: oracle as Contract, admin };
 };
 
+export const setupAave = async (morpho: Contract, signer: Signer) => {
+  const markets: string[] = [
+    "0x028171bca77440897b824ca71d1c56cac55b68a3",
+    "0x030ba81f1c18d280636f32af80b9aad02cf0854e",
+    "0xbcca60bb61934080951369a648fb03df4f96263c",
+    "0x3ed3b47dd13ec9a98b44e6204a523e766b225811",
+    "0x9ff58f4ffb29fa2266ab25e75e2a8b3503311656",
+    "0x1982b2f5814301d4e9a8b0201555376e62f82428",
+    "0x8dae6cb04688c62d939ed9b68d32bc62e49970b1",
+  ];
+
+  const addressesProvider = (await ethers.getContractAt(
+    require("../abis/aave/AddressesProvider.json"),
+    config.addressesProvider,
+    signer
+  )) as Contract;
+  const lendingPool = await ethers.getContractAt(
+    require("../abis/aave/LendingPool.json"),
+    await addressesProvider.getLendingPool(),
+    signer
+  );
+
+  const Oracle = await ethers.getContractFactory("SimplePriceOracle");
+  const oracle = await Oracle.deploy();
+  await oracle.deployed();
+
+  const realOracle = new Contract(
+    // @ts-ignore
+    await addressesProvider.getPriceOracle(),
+    require("../abis/OracleMock.json"),
+    signer
+  );
+  await Promise.all(
+    markets.map(async (marketAddress) => {
+      const aToken = new Contract(
+        marketAddress,
+        require("../abis/AToken.json"),
+        signer
+      );
+      const underlying = await aToken.UNDERLYING_ASSET_ADDRESS();
+      await oracle.setAssetPrice(
+        underlying,
+        await realOracle.getAssetPrice(underlying)
+      );
+    })
+  );
+  await oracle.setAssetPrice(config.tokens.dai.address, parseUnits("1"));
+  await oracle.setAssetPrice(config.tokens.usdt.address, parseUnits("1"));
+  await oracle.setAssetPrice(config.tokens.usdc.address, parseUnits("1"));
+
+  // @ts-ignore
+  const adminAddress = await addressesProvider.owner();
+  await hre.network.provider.send("hardhat_impersonateAccount", [adminAddress]);
+  await hre.network.provider.send("hardhat_setBalance", [
+    adminAddress,
+    ethers.utils.parseEther("10").toHexString(),
+  ]);
+  const admin = await ethers.getSigner(adminAddress);
+  await addressesProvider.connect(admin).setPriceOracle(oracle.address);
+  return { lendingPool, addressesProvider, oracle: oracle as Contract, admin };
+};
+
 export interface TokenConfig {
   balanceOfStorageSlot: number;
   address: string;
   cToken: string;
+  aToken: string;
   decimals: number;
 }
 export const setupToken = async (
@@ -91,5 +154,6 @@ export const setupToken = async (
   return {
     token,
     cToken: new Contract(config.cToken, require("../abis/CToken.json"), owner),
+    aToken: new Contract(config.aToken, require("../abis/AToken.json"), owner),
   };
 };

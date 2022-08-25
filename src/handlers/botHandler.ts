@@ -18,7 +18,7 @@ export const handler = async () => {
     provider
   );
   const morpho = new Contract(
-    config.morpho,
+    config.morphoCompound,
     require("../../artifacts/@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol/IMorpho.json").abi,
     provider
   );

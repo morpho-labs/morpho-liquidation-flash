@@ -40,7 +40,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
       config.lender,
       config.univ3Router,
-      config.morpho,
+      config.morphoCompound,
       config.tokens.dai.cToken,
       config.slippageTolerance
     );
@@ -78,7 +78,7 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     // get Morpho contract
     morpho = await ethers.getContractAt(
       require("../abis/Morpho.json"),
-      config.morpho,
+      config.morphoCompound,
       owner
     );
     lens = await ethers.getContractAt(

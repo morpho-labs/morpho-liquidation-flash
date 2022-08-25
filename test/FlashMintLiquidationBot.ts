@@ -3,7 +3,7 @@ import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
 import { setupCompound, setupToken } from "./setup";
-import { formatUnits, parseUnits } from "ethers/lib/utils";
+import { parseUnits } from "ethers/lib/utils";
 import { pow10 } from "./helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../config";
@@ -48,7 +48,7 @@ describe("Test Liquidation Bot", () => {
     flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
       config.lender,
       config.univ3Router,
-      config.morpho,
+      config.morphoCompound,
       config.tokens.dai.cToken,
       config.slippageTolerance
     );
@@ -92,7 +92,7 @@ describe("Test Liquidation Bot", () => {
     // get Morpho contract
     morpho = await ethers.getContractAt(
       require("../abis/Morpho.json"),
-      config.morpho,
+      config.morphoCompound,
       owner
     );
     lens = await ethers.getContractAt(
