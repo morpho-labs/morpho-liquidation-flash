@@ -9,7 +9,7 @@ import "./IInterestRatesManager.sol";
 import "./IIncentivesVault.sol";
 import "./IRewardsManager.sol";
 
-import "../libraries/Types.sol";
+import "./libraries/Types.sol";
 
 // prettier-ignore
 interface IMorpho {

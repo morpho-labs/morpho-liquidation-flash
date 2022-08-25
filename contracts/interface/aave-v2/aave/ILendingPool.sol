@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 pragma experimental ABIEncoderV2;
 
 import {ILendingPoolAddressesProvider} from "./ILendingPoolAddressesProvider.sol";
-import {DataTypes} from "../../libraries/aave/DataTypes.sol";
+import {DataTypes} from "../libraries/aave/DataTypes.sol";
 
 interface ILendingPool {
     /**
