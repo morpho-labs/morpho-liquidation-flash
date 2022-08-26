@@ -3,7 +3,6 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBase.sol";
-import "hardhat/console.sol";
 
 contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
     using SafeTransferLib for ERC20;
@@ -178,7 +177,6 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
         uint256 _amount,
         uint256 _maxIn
     ) internal returns (uint256 amountIn) {
-        console.log(_amount, _maxIn);
         amountIn = uniswapV3Router.exactOutput(
             ISwapRouter.ExactOutputParams(_path, address(this), block.timestamp, _amount, _maxIn)
         );
