@@ -10,6 +10,7 @@ import config from "../config";
 import LiquidationBot from "../src/LiquidationBot";
 import { Fetcher } from "../src/interfaces/Fetcher";
 import NoLogger from "../src/loggers/NoLogger";
+import underlyings from "../src/constant/underlyings";
 
 describe("Test Liquidation Bot", () => {
   let snapshotId: number;
@@ -266,6 +267,11 @@ describe("Test Liquidation Bot", () => {
       params.debtMarket.market,
       params.collateralMarket.market
     );
+    const expectedPath = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [usdcToken.address, config.swapFees.stable, feiToken.address]
+    );
+    expect(path).to.be.eq(expectedPath);
     const collateralBalanceBefore = await feiToken.balanceOf(
       flashLiquidator.address
     );
@@ -301,7 +307,7 @@ describe("Test Liquidation Bot", () => {
         toSupply
       );
 
-    const usdcToSupply = parseUnits("1500", 6);
+    const usdcToSupply = parseUnits("25000", 6);
     await usdcToken.connect(borrower).approve(morpho.address, usdcToSupply);
 
     await morpho
@@ -312,7 +318,7 @@ describe("Test Liquidation Bot", () => {
         usdcToSupply
       );
 
-    const wEthToSupply = parseUnits("1");
+    const wEthToSupply = parseUnits("1.5");
 
     await wEthToken.connect(borrower).approve(morpho.address, wEthToSupply);
 
@@ -351,7 +357,13 @@ describe("Test Liquidation Bot", () => {
     expect(params.collateralMarket.market.toLowerCase()).eq(
       cUsdcToken.address.toLowerCase()
     );
-    expect(params.toLiquidate.lt(toBorrow.div(pow10(12)).div(2))).to.be.true;
+
+    const toRepay = await lens.computeLiquidationRepayAmount(
+      borrowerAddress,
+      params.debtMarket.market,
+      params.collateralMarket.market,
+      [params.collateralMarket.market, params.debtMarket.market]
+    );
     const path = bot.getPath(
       params.debtMarket.market,
       params.collateralMarket.market

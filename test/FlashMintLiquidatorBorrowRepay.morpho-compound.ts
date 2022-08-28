@@ -8,7 +8,7 @@ import { pow10 } from "./helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../config";
 
-describe("Test Flash Mint liquidator on MakerDAO", () => {
+describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
   let snapshotId: number;
   let morpho: Contract;
   let comptroller: Contract;
@@ -103,8 +103,8 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
   it("Should liquidate a user without a flash loan", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
-
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
+
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
@@ -116,7 +116,6 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const { collateralFactorMantissa } = await comptroller.markets(
       cDaiToken.address
     );
-
     const { onPool, inP2P } = await morpho.supplyBalanceInOf(
       cDaiToken.address,
       borrowerAddress
@@ -124,16 +123,16 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
     const poolIndex = await cDaiToken.exchangeRateStored();
     const p2pIndex = await morpho.p2pSupplyIndex(cDaiToken.address);
 
-    // price is 1:1
+    // price is 1/1 an
     const toBorrow = onPool
       .mul(poolIndex)
       .add(inP2P.mul(p2pIndex))
       .mul(collateralFactorMantissa)
-      .div(pow10(18 * 3 - 6));
+      .div(pow10(18 * 3 - 18));
 
     await morpho
       .connect(borrower)
-      ["borrow(address,uint256)"](cUsdcToken.address, toBorrow);
+      ["borrow(address,uint256)"](cDaiToken.address, toBorrow);
 
     await oracle.setUnderlyingPrice(
       cDaiToken.address,
@@ -143,35 +142,46 @@ describe("Test Flash Mint liquidator on MakerDAO", () => {
 
     await hre.network.provider.send("evm_mine", []);
 
-    const toLiquidate = toBorrow.div(2);
+    const { onPool: debtOnPool, inP2P: debtInP2P } =
+      await morpho.borrowBalanceInOf(cDaiToken.address, borrower.getAddress());
 
-    // transfer to liquidate without flash loans
-    await usdcToken
-      .connect(owner)
-      .transfer(flashLiquidator.address, toLiquidate);
+    const debtPoolIndex = await cDaiToken.borrowIndex();
+    const debtP2PIndex = await morpho.p2pBorrowIndex(cDaiToken.address);
+    const toLiquidate = debtOnPool
+      .mul(debtPoolIndex)
+      .add(debtInP2P.mul(debtP2PIndex))
+      .div(2)
+      .div(pow10(18));
 
     const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
+    const path = ethers.utils.defaultAbiCoder.encode(
+      ["address", "uint24", "address"],
+      [daiToken.address, 1000, daiToken.address]
+    );
+
+    // transfer to liquidate without flash loans
+    await daiToken
+      .connect(owner)
+      .transfer(flashLiquidator.address, toLiquidate);
     expect(
       await flashLiquidator
         .connect(liquidator)
         .liquidate(
-          cUsdcToken.address,
+          cDaiToken.address,
           cDaiToken.address,
           borrowerAddress,
           toLiquidate,
           true,
-          "0x"
+          path
         )
     ).to.emit(flashLiquidator, "Liquidated");
-
     const collateralBalanceAfter = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-
   it("Should liquidate a user with a flash loan and no swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");

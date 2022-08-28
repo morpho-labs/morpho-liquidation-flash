@@ -15,4 +15,5 @@ export default {
     "0xc00e94cb662c3520282e6f5717214004a7f26888".toLowerCase(), // COMP
   ["0x35a18000230da775cac24873d00ff85bccded550".toLowerCase()]:
     "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984".toLowerCase(), // UNI
+  // AAVE Markets
 };

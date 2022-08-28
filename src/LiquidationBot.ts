@@ -103,15 +103,18 @@ export default class LiquidationBot {
     let toLiquidate = debtMarket.totalBorrowBalance.div(2);
     if (
       debtMarket.totalBorrowBalanceUSD
+        .div(2)
         .mul(107) // Compound rewards
         .div(100)
         .gt(collateralMarket.totalSupplyBalanceUSD)
-    )
-      // the collateral cannot cover the debt
+    ) {
+      console.log("the collateral cannot cover the debt");
+
       toLiquidate = collateralMarket.totalSupplyBalanceUSD
         .mul(pow10(20))
         .div(107) // Compound rewards
         .div(debtMarket.price);
+    }
     const rewardedUSD = toLiquidate
       .mul(debtMarket.price)
       .mul(107)
