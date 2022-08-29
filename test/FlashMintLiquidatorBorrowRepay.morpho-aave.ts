@@ -3,7 +3,7 @@ import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
 import { setupAave, setupToken } from "./setup";
-import { formatUnits, parseUnits } from "ethers/lib/utils";
+import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../config";
 
@@ -420,5 +420,61 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+  });
+
+  it("Should the admin be able to withdraw funds", async () => {
+    const usdcAmount = parseUnits("10", 6);
+    // transfer to liquidate without flash loans
+    await usdcToken
+      .connect(owner)
+      .transfer(flashLiquidator.address, usdcAmount);
+
+    const balanceBefore = await usdcToken.balanceOf(owner.getAddress());
+    expect(
+      await flashLiquidator
+        .connect(owner)
+        .withdraw(usdcToken.address, owner.getAddress(), usdcAmount)
+    ).to.emit(flashLiquidator, "Withdrawn");
+    const balanceAfter = await usdcToken.balanceOf(owner.getAddress());
+    expect(balanceAfter.sub(balanceBefore).eq(usdcAmount)).to.be.true;
+  });
+
+  it("Should the admin be able to withdraw a part of the funds", async () => {
+    const usdcAmount = parseUnits("10", 6);
+    await usdcToken
+      .connect(owner)
+      .transfer(flashLiquidator.address, usdcAmount);
+
+    const balanceBefore = await usdcToken.balanceOf(owner.getAddress());
+    expect(
+      await flashLiquidator
+        .connect(owner)
+        .withdraw(usdcToken.address, owner.getAddress(), usdcAmount.div(2))
+    ).to.emit(flashLiquidator, "Withdrawn");
+    const balanceAfter = await usdcToken.balanceOf(owner.getAddress());
+    expect(balanceAfter.sub(balanceBefore).eq(usdcAmount.div(2))).to.be.true;
+  });
+  it("Should not a non admin be able to withdraw funds", async () => {
+    const usdcAmount = parseUnits("10", 6);
+    await usdcToken
+      .connect(owner)
+      .transfer(flashLiquidator.address, usdcAmount);
+
+    expect(
+      flashLiquidator
+        .connect(owner)
+        .withdraw(usdcToken.address, liquidator.getAddress(), usdcAmount.div(2))
+    ).to.revertedWith("");
+  });
+
+  it("Should the admin be able to change the slippage tolerance", async () => {
+    const newSlippageTolerance = 150;
+    expect(
+      await flashLiquidator
+        .connect(owner)
+        .setSlippageTolerance(newSlippageTolerance)
+    ).to.emit(flashLiquidator, "SlippageToleranceSet");
+    const slippageTolerance = await flashLiquidator.slippageTolerance();
+    expect(slippageTolerance.eq(newSlippageTolerance));
   });
 });

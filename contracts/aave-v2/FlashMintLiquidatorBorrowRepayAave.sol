@@ -3,7 +3,6 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBaseAave.sol";
-import "hardhat/console.sol";
 
 contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
     using SafeTransferLib for ERC20;

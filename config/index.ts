@@ -7,6 +7,7 @@ export default {
   morphoAave: "0x777777c9898d384f785ee44acfe945efdff5f3e0",
   morphoAaveLens: "0x8706256509684e9cd93b7f19254775ce9324c226",
   addressesProvider: "0xb53c1a33016b2dc2ff3653530bff1848a515c8c5",
+  protocolDataProvider: "0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d",
   lens: "0x930f1b46e1d081ec1524efd95752be3ece51ef67",
   univ3Router: "0xe592427a0aece92de3edee1f18e0157c05861564", // https://etherscan.io/address/0xe592427a0aece92de3edee1f18e0157c05861564
   lender: "0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853", // https://etherscan.io/address/0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853#code

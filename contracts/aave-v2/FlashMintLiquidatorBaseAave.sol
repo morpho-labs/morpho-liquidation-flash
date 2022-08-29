@@ -155,19 +155,25 @@ abstract contract FlashMintLiquidatorBaseAave is
         view
         returns (uint256 amountToFlashLoan_)
     {
-        IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
+        if(_underlyingToRepay == address(dai)) {
+        amountToFlashLoan_ = _amountToRepay;
+        }
+        else {
+            IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
 
-        (uint256 loanToValue, , , , ) = lendingPool
-            .getConfiguration(address(dai))
-            .getParamsMemory();
-        uint256 daiPrice = oracle.getAssetPrice(address(dai));
-        uint256 borrowedTokenPrice = oracle.getAssetPrice(_underlyingToRepay);
-        uint256 underlyingDecimals = ERC20(_underlyingToRepay).decimals();
-        amountToFlashLoan_ =
-            (((_amountToRepay * borrowedTokenPrice * 10**DAI_DECIMALS) /
-                daiPrice /
-                10**underlyingDecimals) * BASIS_POINTS) /
-            loanToValue;
+            (uint256 loanToValue, , , , ) = lendingPool
+                .getConfiguration(address(dai))
+                .getParamsMemory();
+            uint256 daiPrice = oracle.getAssetPrice(address(dai));
+            uint256 borrowedTokenPrice = oracle.getAssetPrice(_underlyingToRepay);
+            uint256 underlyingDecimals = ERC20(_underlyingToRepay).decimals();
+            amountToFlashLoan_ =
+                _amountToRepay * borrowedTokenPrice * 10**DAI_DECIMALS /
+                    daiPrice /
+                    10**underlyingDecimals * BASIS_POINTS /
+                loanToValue
+                + 1e18; // for rounding errors of supply/borrow on aave
+        }
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)

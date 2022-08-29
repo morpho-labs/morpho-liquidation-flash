@@ -10,7 +10,6 @@ import config from "../config";
 import LiquidationBot from "../src/LiquidationBot";
 import { Fetcher } from "../src/interfaces/Fetcher";
 import NoLogger from "../src/loggers/NoLogger";
-import underlyings from "../src/constant/underlyings";
 
 describe("Test Liquidation Bot", () => {
   let snapshotId: number;
@@ -563,5 +562,8 @@ describe("Test Liquidation Bot", () => {
         path
       )
     ).to.emit(flashLiquidator, "Liquidated");
+  });
+  it("Should liquidate from from the run function", async () => {
+    expect(await bot.run()).to.emit(flashLiquidator, "Liquidated");
   });
 });
