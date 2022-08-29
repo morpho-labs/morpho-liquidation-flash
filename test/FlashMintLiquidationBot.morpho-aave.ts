@@ -9,6 +9,7 @@ import config from "../config";
 import LiquidationBot from "../src/LiquidationBot";
 import { Fetcher } from "../src/interfaces/Fetcher";
 import NoLogger from "../src/loggers/NoLogger";
+import tokens from "../config/tokens";
 
 describe("Test Liquidation Bot", () => {
   let snapshotId: number;
@@ -26,10 +27,12 @@ describe("Test Liquidation Bot", () => {
   let daiToken: Contract;
   let usdcToken: Contract;
   let wEthToken: Contract;
+  let usdtToken: Contract;
 
   let aDaiToken: Contract;
   let aUsdcToken: Contract;
   let aEthToken: Contract;
+  let aUsdtToken: Contract;
 
   let bot: LiquidationBot;
   let fetcher: Fetcher;
@@ -70,6 +73,12 @@ describe("Test Liquidation Bot", () => {
       owner,
       [owner, liquidator, borrower, liquidableUser],
       parseUnits("100000", config.tokens.wEth.decimals)
+    ));
+    ({ aToken: aUsdtToken, token: usdtToken } = await setupToken(
+      config.tokens.usdt,
+      owner,
+      [owner, liquidator, borrower, liquidableUser],
+      parseUnits("100000", config.tokens.usdt.decimals)
     ));
     // get Morpho contract
     morpho = await ethers.getContractAt(
@@ -191,6 +200,93 @@ describe("Test Liquidation Bot", () => {
     ).to.emit(flashLiquidator, "Liquidated");
 
     const collateralBalanceAfter = await wEthToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
+  });
+
+  it("Should return correct params for a liquidable user with a non collateral token supplied (USDT)", async () => {
+    const borrowerAddress = await borrower.getAddress();
+    const toSupply = parseUnits("100");
+
+    await daiToken.connect(borrower).approve(morpho.address, toSupply);
+
+    const usdtToSupply = parseUnits("1000", tokens.usdt.decimals);
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
+        aDaiToken.address,
+        borrowerAddress,
+        toSupply
+      );
+
+    await usdtToken.connect(borrower).approve(morpho.address, usdtToSupply);
+    await morpho
+      .connect(borrower)
+      ["supply(address,address,uint256)"](
+        aUsdtToken.address,
+        borrowerAddress,
+        usdtToSupply
+      );
+
+    // price is 1:1, just have to take care of decimals
+
+    const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
+      borrowerAddress,
+      aUsdcToken.address
+    );
+    await morpho
+      .connect(borrower)
+      ["borrow(address,uint256)"](aUsdtToken.address, borrowable);
+
+    const toWithdraw = toSupply.mul(9000 - 7700).div(10_000); // 90% - 77% for DAI
+    await morpho.connect(borrower).withdraw(aDaiToken.address, toWithdraw);
+    const daiPrice = await oracle.getAssetPrice(daiToken.address);
+    await oracle.setAssetPrice(
+      daiToken.address,
+      daiPrice.mul(9_500).div(10_000)
+    );
+    // Mine block
+    await hre.network.provider.send("evm_mine", []);
+
+    const usersToLiquidate = await bot.computeLiquidableUsers();
+    expect(usersToLiquidate).to.have.lengthOf(2, "Users length");
+    const userToLiquidate = usersToLiquidate.find(
+      (u) => u.address.toLowerCase() === borrowerAddress.toLowerCase()
+    );
+    expect(usersToLiquidate).to.not.be.undefined;
+    const params = await bot.getUserLiquidationParams(userToLiquidate!.address);
+
+    expect(params.collateralMarket.market.toLowerCase()).eq(
+      aDaiToken.address.toLowerCase(),
+      "USDT has not rewards for liquidation"
+    );
+    const path = bot.getPath(
+      params.debtMarket.market,
+      params.collateralMarket.market
+    );
+    const expectedPath = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [usdtToken.address, config.swapFees.stable, daiToken.address]
+    );
+    expect(path).to.be.eq(expectedPath);
+    const collateralBalanceBefore = await daiToken.balanceOf(
+      flashLiquidator.address
+    );
+    expect(
+      await flashLiquidator
+        .connect(liquidator)
+        .liquidate(
+          params.debtMarket.market,
+          params.collateralMarket.market,
+          params.userAddress,
+          params.toLiquidate,
+          true,
+          path
+        )
+    ).to.emit(flashLiquidator, "Liquidated");
+
+    const collateralBalanceAfter = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;

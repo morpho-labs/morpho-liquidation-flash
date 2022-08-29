@@ -30,6 +30,10 @@ Parameters:
     Type: String
     Description: The Liquidator Contract Address
 
+  LiquidatorAaveContractAddress:
+    Type: String
+    Description: The Liquidator Contract Address
+
 
 Resources:
   LiquidationBot:
@@ -56,6 +60,36 @@ Resources:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
           LIQUIDATOR_ADDRESS: !Ref LiquidatorContractAddress
+          SECRET_NAME: PrivateKeyMainnet
+          IS_COMPOUND: true
+    Metadata:
+      DockerTag: nodejs14.x-v1
+      DockerContext: .
+      Dockerfile: bot.Dockerfile
+  LiquidationBotAave:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      Architectures:
+        - x86_64
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub
+              - "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretId}"
+              - { SecretId: !Ref PrivateKeySecretId }
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub
+              - "rate(${ScheduledRate})"
+              - { ScheduledRate: !Ref ScheduledRate }
+            Enabled: True
+      Environment:
+        Variables:
+          SECRET_ID: !Ref PrivateKeySecretId
+          ALCHEMY_KEY: !Ref AlchemyKey
+          LIQUIDATOR_ADDRESS: !Ref LiquidatorAaveContractAddress
           SECRET_NAME: PrivateKeyMainnet
     Metadata:
       DockerTag: nodejs14.x-v1

@@ -1,26 +1,18 @@
 import { Fetcher } from "../interfaces/Fetcher";
 import axios from "axios";
+import { GraphParams, GraphReturnType, User } from "./GraphFetcher";
 
-export interface User {
-  id: string;
-  address: string;
-  isBorrower: boolean;
-}
-export type GraphReturnType<T> = { data: { data?: T; errors?: object } };
-export type GraphParams = { query: string; variables: object };
-
-export default class GraphFetcher implements Fetcher {
+export default class AaveGraphFetcher implements Fetcher {
   static QUERY = `query GetAccounts($first: Int, $lastId: ID){
-      users(
-          first: $first 
-          where: {id_gt: $lastId isBorrower: true} 
+      accounts(
+          first: $first, 
+          where: { id_gt: $lastId } 
           orderBy: id, 
           orderDirection: asc
       ) {
-        id
-        address
-        isBorrower
-    }
+    id
+    address
+  }
 }`;
 
   constructor(public graphUrl: string, public batchSize = 1000) {}
@@ -29,8 +21,11 @@ export default class GraphFetcher implements Fetcher {
     lastId: string = ""
   ): Promise<{ hasMore: boolean; users: string[]; lastId: string }> {
     const result = await axios
-      .post<GraphParams, GraphReturnType<{ users: User[] }>>(this.graphUrl, {
-        query: GraphFetcher.QUERY,
+      .post<
+        GraphParams,
+        GraphReturnType<{ accounts: Omit<User, "isBorrower">[] }>
+      >(this.graphUrl, {
+        query: AaveGraphFetcher.QUERY,
         variables: { lastId, first: this.batchSize },
       })
       .then((r) => {
@@ -39,10 +34,12 @@ export default class GraphFetcher implements Fetcher {
         return r.data.data;
       });
     const newLastId =
-      result.users.length === 0 ? "" : result.users[result.users.length - 1].id;
+      result.accounts.length === 0
+        ? ""
+        : result.accounts[result.accounts.length - 1].id;
     return {
-      hasMore: result.users.length === this.batchSize,
-      users: result.users.map((u) => u.address),
+      hasMore: result.accounts.length === this.batchSize,
+      users: result.accounts.map((u) => u.address),
       lastId: newLastId,
     };
   }

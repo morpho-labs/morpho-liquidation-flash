@@ -116,8 +116,15 @@ export default class LiquidationBot {
           totalSupplyBalance,
           totalBorrowBalance,
         ]);
+        let liquidationBonus = BigNumber.from(10_700); // 7% on compound
+        if (this.settings.protocol === "aave") {
+          const underlying = underlyings[market.toLowerCase()];
+          ({ liquidationBonus } =
+            await protocolDataProvider.getReserveConfigurationData(underlying));
+        }
         return {
           market,
+          liquidationBonus,
           totalSupplyBalance,
           totalBorrowBalance,
           price,
@@ -129,27 +136,25 @@ export default class LiquidationBot {
     const [debtMarket] = balances.sort((a, b) =>
       a.totalBorrowBalanceUSD.gt(b.totalBorrowBalanceUSD) ? -1 : 1
     );
-    const [collateralMarket] = balances.sort((a, b) =>
-      a.totalSupplyBalanceUSD.gt(b.totalSupplyBalanceUSD) ? -1 : 1
-    );
+    const [collateralMarket] = balances
+      .filter((b) => b.liquidationBonus.gt(0))
+      .sort((a, b) =>
+        a.totalSupplyBalanceUSD.gt(b.totalSupplyBalanceUSD) ? -1 : 1
+      );
     this.logger.log("Debt Market");
     this.logger.log(debtMarket);
     this.logger.log("Collateral Market");
     this.logger.log(collateralMarket);
     let toLiquidate = debtMarket.totalBorrowBalance.div(2);
-    let liquidationBonus = BigNumber.from(10_700); // 7% on compound
-    if (this.settings.protocol === "aave") {
-      const underlying = underlyings[collateralMarket.market.toLowerCase()];
-      ({ liquidationBonus } =
-        await protocolDataProvider.getReserveConfigurationData(underlying));
-    }
-    let rewardedUSD = collateralMarket.totalSupplyBalanceUSD
-      .mul(10_000)
-      .div(liquidationBonus);
+    let rewardedUSD = collateralMarket.liquidationBonus.eq(0)
+      ? BigNumber.from(0)
+      : collateralMarket.totalSupplyBalanceUSD
+          .mul(10_000)
+          .div(collateralMarket.liquidationBonus);
     if (
       debtMarket.totalBorrowBalanceUSD
         .div(2)
-        .mul(liquidationBonus) // Compound rewards
+        .mul(collateralMarket.liquidationBonus) // Compound rewards
         .div(10_000)
         .gt(collateralMarket.totalSupplyBalanceUSD)
     ) {

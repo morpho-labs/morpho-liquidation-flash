@@ -3,6 +3,7 @@ import tokens from "./tokens";
 export default {
   liquidator: "",
   oracle: "0x65c816077c29b557bee980ae3cc2dce80204a0c5",
+  oracleAave: "0xa50ba011c48153de246e5192c8f9258a2ba79ca9",
   morphoCompound: "0x8888882f8f843896699869179fB6E4f7e3B58888",
   morphoAave: "0x777777c9898d384f785ee44acfe945efdff5f3e0",
   morphoAaveLens: "0x8706256509684e9cd93b7f19254775ce9324c226",
@@ -21,6 +22,7 @@ export default {
   graphUrl: {
     morphoCompound:
       "https://api.thegraph.com/subgraphs/name/korrigans84/morphocompoundusers",
-    morphoAave: "",
+    morphoAave:
+      "https://api.thegraph.com/subgraphs/name/morpho-labs/morpho-aavev2-mainnet",
   },
 };
