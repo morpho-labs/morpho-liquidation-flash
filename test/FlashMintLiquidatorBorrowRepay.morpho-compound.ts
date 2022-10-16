@@ -3,7 +3,7 @@ import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { Contract, Signer } from "ethers";
 import { setupCompound, setupToken } from "./setup";
-import { parseUnits } from "ethers/lib/utils";
+import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { pow10 } from "./helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../config";
@@ -37,13 +37,18 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
     const FlashMintLiquidator = await ethers.getContractFactory(
       "FlashMintLiquidatorBorrowRepay"
     );
-    flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
-      config.lender,
-      config.univ3Router,
-      config.morphoCompound,
-      config.tokens.dai.cToken,
-      config.slippageTolerance
+    flashLiquidator = await ethers.getContractAt(
+      "FlashMintLiquidatorBorrowRepay",
+      "0xe7ffcce05c17f414150bb864945a82899c013c4b"
     );
+
+    // flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
+    //   config.lender,
+    //   config.univ3Router,
+    //   config.morphoCompound,
+    //   config.tokens.dai.cToken,
+    //   config.slippageTolerance
+    // );
     await flashLiquidator.deployed();
 
     await flashLiquidator
@@ -74,7 +79,11 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
       [owner, liquidator, borrower],
       parseUnits("100000", config.tokens.fei.decimals)
     ));
-
+    const balance = await usdcToken.balanceof(
+      "0xe7ffcce05c17f414150bb864945a82899c013c4b"
+    );
+    const ownerFlashLiquidator = await flashLiquidator.owner();
+    console.log(formatUnits(balance, 6), ownerFlashLiquidator);
     // get Morpho contract
     morpho = await ethers.getContractAt(
       require("../abis/Morpho.json"),

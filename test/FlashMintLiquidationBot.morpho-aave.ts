@@ -291,4 +291,8 @@ describe("Test Liquidation Bot", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
+
+  it("Should liquidate from from the run function", async () => {
+    expect(await bot.run()).to.emit(flashLiquidator, "Liquidated");
+  });
 });

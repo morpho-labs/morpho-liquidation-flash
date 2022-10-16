@@ -7,6 +7,7 @@
   "license": "MIT",
   "scripts": {
     "test": "yarn hardhat test",
+    "run:bot": "hardhat run scripts/runBot.ts",
     "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write",
     "compile": "hardhat compile",
     "build:bot": "yarn compile && tsc"

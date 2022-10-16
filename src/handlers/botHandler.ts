@@ -12,14 +12,14 @@ export const handler = async () => {
   const isCompound = process.env.IS_COMPOUND;
   if (!privateKey) throw Error("No PRIVATE_KEY provided");
   const provider = new providers.AlchemyProvider(1, process.env.ALCHEMY_KEY);
-
+  const liquidatorContractName = isCompound
+    ? "FlashMintLiquidatorBorrowRepay"
+    : "FlashMintLiquidatorBorrowRepayAave";
   const flashLiquidator = new Contract(
     process.env.LIQUIDATOR_ADDRESS ?? config.liquidator,
-    require(`../../artifacts/contracts/FlashMintLiquidatorBorrowRepay.sol/${
-      isCompound
-        ? "FlashMintLiquidatorBorrowRepay"
-        : "FlashMintLiquidatorBorrowRepayAave"
-    }.json`).abi,
+    require(`../../artifacts/contracts${
+      !isCompound ? "/aave-v2" : ""
+    }/${liquidatorContractName}.sol/${liquidatorContractName}.json`).abi,
     provider
   );
   const morpho = new Contract(
@@ -29,9 +29,10 @@ export const handler = async () => {
   );
   const lens = new Contract(
     isCompound ? config.lens : config.morphoAaveLens,
-    require("../../abis/Lens.json"),
+    require(isCompound ? "../../abis/Lens.json" : "../../abis/aave/Lens.json"),
     provider
   );
+  console.log(isCompound, lens);
   const oracle = new Contract(
     isCompound ? config.oracle : config.oracleAave,
     require("../../abis/Oracle.json"),

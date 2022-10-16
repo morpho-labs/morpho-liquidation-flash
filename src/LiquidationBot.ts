@@ -50,8 +50,9 @@ export default class LiquidationBot {
         users.map(async (userAddress) => ({
           address: userAddress,
           hf: (await this.lens.getUserHealthFactor(
-            userAddress,
-            []
+            ...(this.settings.protocol === "compound"
+              ? [userAddress, []]
+              : [userAddress])
           )) as BigNumber,
         }))
       ).then((healthFactors) =>

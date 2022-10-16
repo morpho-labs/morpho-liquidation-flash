@@ -89,6 +89,7 @@ Resources:
         Variables:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
+          PROFITABLE_THRESHOLD: 0.001 # is ETH
           LIQUIDATOR_ADDRESS: !Ref LiquidatorAaveContractAddress
           SECRET_NAME: PrivateKeyMainnet
     Metadata:

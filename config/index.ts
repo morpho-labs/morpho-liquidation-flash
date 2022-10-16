@@ -6,7 +6,7 @@ export default {
   oracleAave: "0xa50ba011c48153de246e5192c8f9258a2ba79ca9",
   morphoCompound: "0x8888882f8f843896699869179fB6E4f7e3B58888",
   morphoAave: "0x777777c9898d384f785ee44acfe945efdff5f3e0",
-  morphoAaveLens: "0x8706256509684e9cd93b7f19254775ce9324c226",
+  morphoAaveLens: "0x507fa343d0a90786d86c7cd885f5c49263a91ff4",
   addressesProvider: "0xb53c1a33016b2dc2ff3653530bff1848a515c8c5",
   protocolDataProvider: "0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d",
   lens: "0x930f1b46e1d081ec1524efd95752be3ece51ef67",
