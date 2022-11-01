@@ -53,7 +53,10 @@ library PercentageMath {
         assembly {
             y := sub(PERCENTAGE_FACTOR, percentage) // Temporary assignment to save gas.
 
-            if or(gt(percentage, PERCENTAGE_FACTOR), mul(y, gt(x, div(MAX_UINT256_MINUS_HALF_PERCENTAGE, y)))) {
+            if or(
+                gt(percentage, PERCENTAGE_FACTOR),
+                mul(y, gt(x, div(MAX_UINT256_MINUS_HALF_PERCENTAGE, y)))
+            ) {
                 revert(0, 0)
             }
 
@@ -123,12 +126,18 @@ library PercentageMath {
                 gt(percentage, PERCENTAGE_FACTOR),
                 or(
                     mul(percentage, gt(y, div(MAX_UINT256_MINUS_HALF_PERCENTAGE, percentage))),
-                    mul(z, gt(x, div(sub(MAX_UINT256_MINUS_HALF_PERCENTAGE, mul(y, percentage)), z)))
+                    mul(
+                        z,
+                        gt(x, div(sub(MAX_UINT256_MINUS_HALF_PERCENTAGE, mul(y, percentage)), z))
+                    )
                 )
             ) {
                 revert(0, 0)
             }
-            z := div(add(add(mul(x, z), mul(y, percentage)), HALF_PERCENTAGE_FACTOR), PERCENTAGE_FACTOR)
+            z := div(
+                add(add(mul(x, z), mul(y, percentage)), HALF_PERCENTAGE_FACTOR),
+                PERCENTAGE_FACTOR
+            )
         }
     }
 }

@@ -14,7 +14,7 @@ export const handler = async () => {
 
   const flashLiquidator = new Contract(
     process.env.LIQUIDATOR_ADDRESS ?? config.liquidator,
-    require("../../artifacts/contracts/FlashMintLiquidatorBorrowRepay.sol/FlashMintLiquidatorBorrowRepay.json").abi,
+    require("../../artifacts/contracts/CompoundLiquidator.sol/CompoundLiquidator.json").abi,
     provider
   );
   const morpho = new Contract(

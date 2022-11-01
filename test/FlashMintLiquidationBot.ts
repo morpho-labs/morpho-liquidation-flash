@@ -27,13 +27,11 @@ describe("Test Liquidation Bot", () => {
 
   let daiToken: Contract;
   let usdcToken: Contract;
-  let feiToken: Contract;
   let wEthToken: Contract;
   let compToken: Contract;
 
   let cDaiToken: Contract;
   let cUsdcToken: Contract;
-  let cFeiToken: Contract;
   let cEthToken: Contract;
   let cCompToken: Contract;
 
@@ -43,20 +41,12 @@ describe("Test Liquidation Bot", () => {
     [owner, liquidator, borrower, liquidableUser] = await ethers.getSigners();
 
     const FlashMintLiquidator = await ethers.getContractFactory(
-      "FlashMintLiquidatorBorrowRepay"
+      "CompoundLiquidator"
     );
     flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
-      config.lender,
-      config.univ3Router,
-      config.morpho,
-      config.tokens.dai.cToken,
       config.slippageTolerance
     );
     await flashLiquidator.deployed();
-
-    await flashLiquidator
-      .connect(owner)
-      .addLiquidator(await liquidator.getAddress());
 
     ({ token: usdcToken, cToken: cUsdcToken } = await setupToken(
       config.tokens.usdc,
@@ -69,12 +59,6 @@ describe("Test Liquidation Bot", () => {
       owner,
       [owner, liquidator, borrower, liquidableUser],
       parseUnits("1000000000", config.tokens.dai.decimals)
-    ));
-    ({ token: feiToken, cToken: cFeiToken } = await setupToken(
-      config.tokens.fei,
-      owner,
-      [owner, liquidator, borrower, liquidableUser],
-      parseUnits("100000", config.tokens.fei.decimals)
     ));
     ({ cToken: cEthToken, token: wEthToken } = await setupToken(
       config.tokens.wEth,
@@ -115,7 +99,7 @@ describe("Test Liquidation Bot", () => {
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
-      liquidator,
+      owner,
       morpho,
       lens,
       oracle,
@@ -179,6 +163,7 @@ describe("Test Liquidation Bot", () => {
     const usersToLiquidate = await bot.computeLiquidableUsers();
     expect(usersToLiquidate).to.have.lengthOf(1, "Users length");
   });
+
   it("Should return correct params for a liquidable user", async () => {
     const [userToLiquidate] = await bot.computeLiquidableUsers();
 
@@ -194,13 +179,12 @@ describe("Test Liquidation Bot", () => {
     );
     expect(
       await flashLiquidator
-        .connect(liquidator)
+        .connect(owner)
         .liquidate(
           params.debtMarket.market,
           params.collateralMarket.market,
           params.userAddress,
           params.toLiquidate,
-          true,
           path
         )
     ).to.emit(flashLiquidator, "Liquidated");
@@ -210,83 +194,7 @@ describe("Test Liquidation Bot", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-  it("Should return correct params for a liquidable user with a non collateral token supplied (FEI)", async () => {
-    const borrowerAddress = await borrower.getAddress();
-    const toSupply = parseUnits("10");
 
-    await daiToken.connect(borrower).approve(morpho.address, toSupply);
-
-    const feiToSupply = parseUnits("1000");
-    await morpho
-      .connect(borrower)
-      ["supply(address,address,uint256)"](
-        cDaiToken.address,
-        borrowerAddress,
-        toSupply
-      );
-
-    await feiToken.connect(borrower).approve(morpho.address, feiToSupply);
-    await morpho
-      .connect(borrower)
-      ["supply(address,address,uint256)"](
-        cFeiToken.address,
-        borrowerAddress,
-        feiToSupply
-      );
-
-    // price is 1:1, just have to take care of decimals
-    const { maxDebtValue: toBorrowInUSD } = await lens.getUserBalanceStates(
-      borrowerAddress,
-      [cUsdcToken.address]
-    );
-    const toBorrow = toBorrowInUSD.div(pow10(12)); // to 6 decimals
-    await morpho
-      .connect(borrower)
-      ["borrow(address,uint256)"](cUsdcToken.address, toBorrow);
-
-    await oracle.setUnderlyingPrice(
-      cDaiToken.address,
-      parseUnits("0.92", 18 * 2 - 18)
-    );
-    // Mine block
-    await hre.network.provider.send("evm_mine", []);
-
-    const usersToLiquidate = await bot.computeLiquidableUsers();
-    expect(usersToLiquidate).to.have.lengthOf(2, "Users length");
-    const userToLiquidate = usersToLiquidate.find(
-      (u) => u.address.toLowerCase() === borrowerAddress.toLowerCase()
-    );
-    expect(usersToLiquidate).to.not.be.undefined;
-    const params = await bot.getUserLiquidationParams(userToLiquidate!.address);
-
-    expect(params.collateralMarket.market.toLowerCase()).eq(
-      cFeiToken.address.toLowerCase()
-    );
-    const path = bot.getPath(
-      params.debtMarket.market,
-      params.collateralMarket.market
-    );
-    const collateralBalanceBefore = await feiToken.balanceOf(
-      flashLiquidator.address
-    );
-    expect(
-      await flashLiquidator
-        .connect(liquidator)
-        .liquidate(
-          params.debtMarket.market,
-          params.collateralMarket.market,
-          params.userAddress,
-          params.toLiquidate,
-          true,
-          path
-        )
-    ).to.emit(flashLiquidator, "Liquidated");
-
-    const collateralBalanceAfter = await feiToken.balanceOf(
-      flashLiquidator.address
-    );
-    expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
-  });
   it("Should return correct params for a liquidable user with multiple supplied tokens", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("1500");
@@ -359,13 +267,12 @@ describe("Test Liquidation Bot", () => {
     expect(path).eq("0x", "Wrong default path");
     expect(
       await flashLiquidator
-        .connect(liquidator)
+        .connect(owner)
         .liquidate(
           params.debtMarket.market,
           params.collateralMarket.market,
           params.userAddress,
           params.toLiquidate,
-          true,
           path
         )
     ).to.emit(flashLiquidator, "Liquidated");
@@ -446,13 +353,12 @@ describe("Test Liquidation Bot", () => {
     );
     expect(
       await flashLiquidator
-        .connect(liquidator)
+        .connect(owner)
         .liquidate(
           params.debtMarket.market,
           params.collateralMarket.market,
           params.userAddress,
           toRepay,
-          true,
           path
         )
     ).to.emit(flashLiquidator, "Liquidated");
@@ -516,13 +422,12 @@ describe("Test Liquidation Bot", () => {
 
     expect(
       await flashLiquidator
-        .connect(liquidator)
+        .connect(owner)
         .liquidate(
           params.debtMarket.market,
           params.collateralMarket.market,
           params.userAddress,
           toRepay,
-          true,
           path
         )
     ).to.emit(flashLiquidator, "Liquidated");
@@ -547,7 +452,6 @@ describe("Test Liquidation Bot", () => {
         params.collateralMarket.market,
         params.userAddress,
         params.toLiquidate,
-        true,
         path
       )
     ).to.emit(flashLiquidator, "Liquidated");
