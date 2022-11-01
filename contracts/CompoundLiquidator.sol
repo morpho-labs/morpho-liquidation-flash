@@ -15,8 +15,41 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract CompoundLiquidator is IFlashLoanRecipient, Ownable {
     using SafeTransferLib for ERC20;
-    using CompoundMath for uint256;
     using PercentageMath for uint256;
+    using CompoundMath for uint256;
+
+    /// STRUCTS ///
+
+    struct FlashLoanParams {
+        address collateralUnderlying;
+        address borrowedUnderlying;
+        address poolTokenCollateral;
+        address poolTokenBorrowed;
+        address borrower;
+        uint256 toLiquidate;
+        bytes path;
+    }
+
+    struct LiquidateParams {
+        address collateralUnderlying;
+        address borrowedUnderlying;
+        address poolTokenCollateral;
+        address poolTokenBorrowed;
+        address borrower;
+        uint256 toRepay;
+    }
+
+    /// ERRORS ///
+
+    error ValueAboveBasisPoints();
+
+    error UnknownLender();
+
+    error UnknownInitiator();
+
+    /// EVENTS ///
+
+    event SlippageToleranceSet(uint256 newTolerance);
 
     event Withdrawn(address indexed token, uint256 amount);
 
@@ -100,51 +133,6 @@ contract CompoundLiquidator is IFlashLoanRecipient, Ownable {
 		*/
     }
 
-    struct FlashLoanParams {
-        address collateralUnderlying;
-        address borrowedUnderlying;
-        address poolTokenCollateral;
-        address poolTokenBorrowed;
-        address borrower;
-        uint256 toLiquidate;
-        bytes path;
-    }
-
-    struct LiquidateParams {
-        ERC20 collateralUnderlying;
-        ERC20 borrowedUnderlying;
-        ICToken poolTokenCollateral;
-        ICToken poolTokenBorrowed;
-        address borrower;
-        uint256 toRepay;
-    }
-
-    error ValueAboveBasisPoints();
-
-    error UnknownLender();
-
-    error UnknownInitiator();
-
-    event SlippageToleranceSet(uint256 newTolerance);
-
-    event Swapped(
-        address indexed tokenIn,
-        address indexed tokenOut,
-        uint256 amountIn,
-        uint256 amountOut
-    );
-
-    event Liquidated(
-        address borrower,
-        address indexed poolTokenBorrowedAddress,
-        address indexed poolTokenCollateralAddress,
-        uint256 amount,
-        uint256 seized,
-        bool usingFlashLoan
-    );
-
-    event FlashLoan(address indexed initiator, uint256 amount);
-
     function liquidate(
         address _poolTokenBorrowedAddress,
         address _poolTokenCollateralAddress,
@@ -153,15 +141,15 @@ contract CompoundLiquidator is IFlashLoanRecipient, Ownable {
         bytes memory _path
     ) external onlyOwner {
         LiquidateParams memory liquidateParams = LiquidateParams(
-            ERC20(cTokenToUnderlying[_poolTokenCollateralAddress]),
-            ERC20(cTokenToUnderlying[_poolTokenBorrowedAddress]),
-            ICToken(_poolTokenCollateralAddress),
-            ICToken(_poolTokenBorrowedAddress),
+            cTokenToUnderlying[_poolTokenCollateralAddress],
+            cTokenToUnderlying[_poolTokenBorrowedAddress],
+            _poolTokenCollateralAddress,
+            _poolTokenBorrowedAddress,
             _borrower,
             _repayAmount
         );
 
-        if (liquidateParams.borrowedUnderlying.balanceOf(address(this)) >= _repayAmount)
+        if (ERC20(liquidateParams.borrowedUnderlying).balanceOf(address(this)) >= _repayAmount)
             _liquidateInternal(liquidateParams);
         else {
             FlashLoanParams memory params = FlashLoanParams(
@@ -175,15 +163,6 @@ contract CompoundLiquidator is IFlashLoanRecipient, Ownable {
             );
             _liquidateWithFlashLoan(params);
         }
-
-        emit Liquidated(
-            liquidateParams.borrower,
-            address(liquidateParams.poolTokenBorrowed),
-            address(liquidateParams.poolTokenCollateral),
-            liquidateParams.toRepay,
-            0, // TODO
-            true // TODO
-        );
     }
 
     function receiveFlashLoan(
@@ -195,32 +174,27 @@ contract CompoundLiquidator is IFlashLoanRecipient, Ownable {
         if (msg.sender != address(LENDER)) revert UnknownLender();
         if (tx.origin != owner()) revert UnknownInitiator(); // TODO: check this
 
-        FlashLoanParams memory flashLoanParams = _decodeData(data);
-        _flashLoanInternal(flashLoanParams);
+        _flashLoanInternal(_decodeData(data));
     }
 
     function _flashLoanInternal(FlashLoanParams memory _flashLoanParams) internal {
         LiquidateParams memory liquidateParams = LiquidateParams(
-            ERC20(_flashLoanParams.collateralUnderlying),
-            ERC20(_flashLoanParams.borrowedUnderlying),
-            ICToken(_flashLoanParams.poolTokenCollateral),
-            ICToken(_flashLoanParams.poolTokenBorrowed),
+            _flashLoanParams.collateralUnderlying,
+            _flashLoanParams.borrowedUnderlying,
+            _flashLoanParams.poolTokenCollateral,
+            _flashLoanParams.poolTokenBorrowed,
             _flashLoanParams.borrower,
             _flashLoanParams.toLiquidate
         );
         _liquidateInternal(liquidateParams);
 
         if (_flashLoanParams.borrowedUnderlying != _flashLoanParams.collateralUnderlying) {
-            uint256 maxIn = (_flashLoanParams
+            uint256 maxIn = _flashLoanParams
                 .toLiquidate
                 .mul(ORACLE.getUnderlyingPrice(_flashLoanParams.poolTokenBorrowed))
-                .div(ORACLE.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral)) *
-                (10_000 + slippageTolerance)) / 10_000;
-            //maxIn = type(uint256).max;
-            ERC20(_flashLoanParams.collateralUnderlying).safeApprove(
-                address(ROUTER),
-                type(uint256).max //TODO
-            );
+                .div(ORACLE.getUnderlyingPrice(_flashLoanParams.poolTokenCollateral))
+                .percentAdd(slippageTolerance);
+            ERC20(_flashLoanParams.collateralUnderlying).safeApprove(address(ROUTER), maxIn);
 
             _doSecondSwap(_flashLoanParams.path, _flashLoanParams.toLiquidate, maxIn);
         }
@@ -232,50 +206,24 @@ contract CompoundLiquidator is IFlashLoanRecipient, Ownable {
     }
 
     function _liquidateInternal(LiquidateParams memory _liquidateParams) internal {
-        uint256 balanceBefore = _liquidateParams.collateralUnderlying.balanceOf(address(this));
-        _liquidateParams.borrowedUnderlying.safeApprove(address(MORPHO), _liquidateParams.toRepay);
-
+        ERC20(_liquidateParams.borrowedUnderlying).safeApprove(
+            address(MORPHO),
+            _liquidateParams.toRepay
+        );
         MORPHO.liquidate(
             address(_liquidateParams.poolTokenBorrowed),
             address(_liquidateParams.poolTokenCollateral),
             _liquidateParams.borrower,
             _liquidateParams.toRepay
         );
-        uint256 seized_ = _liquidateParams.collateralUnderlying.balanceOf(address(this)) -
-            balanceBefore;
-
-        emit Liquidated(
-            _liquidateParams.borrower,
-            address(_liquidateParams.poolTokenBorrowed),
-            address(_liquidateParams.poolTokenCollateral),
-            _liquidateParams.toRepay,
-            seized_,
-            false
-        );
     }
 
-    function _liquidateWithFlashLoan(FlashLoanParams memory _flashLoanParams)
-        internal
-        returns (uint256 seized_)
-    {
-        bytes memory data = _encodeData(_flashLoanParams);
-
-        // TODO: approve everything.
-        ERC20(_flashLoanParams.borrowedUnderlying).safeApprove(address(LENDER), type(uint256).max);
-
-        uint256 balanceBefore = ERC20(_flashLoanParams.collateralUnderlying).balanceOf(
-            address(this)
-        );
-
+    function _liquidateWithFlashLoan(FlashLoanParams memory _flashLoanParams) internal {
         address[] memory tokens = new address[](1);
         tokens[0] = _flashLoanParams.borrowedUnderlying;
         uint256[] memory amounts = new uint256[](1);
         amounts[0] = _flashLoanParams.toLiquidate;
-        LENDER.flashLoan(address(this), tokens, amounts, data);
-
-        seized_ =
-            ERC20(_flashLoanParams.collateralUnderlying).balanceOf(address(this)) -
-            balanceBefore;
+        LENDER.flashLoan(address(this), tokens, amounts, _encodeData(_flashLoanParams));
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)
