@@ -2,16 +2,16 @@
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { setupCompound, setupToken } from "./setup";
+import { setupCompound, setupToken } from "../setup";
 import { parseUnits } from "ethers/lib/utils";
-import { pow10 } from "./helpers";
+import { pow10 } from "../helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import config from "../config";
-import LiquidationBot from "../src/LiquidationBot";
-import { Fetcher } from "../src/interfaces/Fetcher";
-import NoLogger from "../src/loggers/NoLogger";
+import config from "../../config";
+import LiquidationBot from "../../src/LiquidationBot";
+import { Fetcher } from "../../src/interfaces/Fetcher";
+import NoLogger from "../../src/loggers/NoLogger";
 
-describe("Test Liquidation Bot", () => {
+describe("Test Liquidation Bot for Morpho-Compound", () => {
   let snapshotId: number;
   let morpho: Contract;
   let comptroller: Contract;
@@ -43,7 +43,7 @@ describe("Test Liquidation Bot", () => {
     [owner, liquidator, borrower, liquidableUser] = await ethers.getSigners();
 
     const FlashMintLiquidator = await ethers.getContractFactory(
-      "FlashMintLiquidatorBorrowRepay"
+      "FlashMintLiquidatorBorrowRepayCompound"
     );
     flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
       config.lender,
@@ -91,12 +91,12 @@ describe("Test Liquidation Bot", () => {
 
     // get Morpho contract
     morpho = await ethers.getContractAt(
-      require("../abis/Morpho.json"),
+      require("../../abis/Morpho.json"),
       config.morphoCompound,
       owner
     );
     lens = await ethers.getContractAt(
-      require("../abis/Lens.json"),
+      require("../../abis/Lens.json"),
       config.lens,
       owner
     );

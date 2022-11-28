@@ -2,16 +2,16 @@
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { setupAave, setupToken } from "./setup";
+import { setupAave, setupToken } from "../setup";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import config from "../config";
-import LiquidationBot from "../src/LiquidationBot";
-import { Fetcher } from "../src/interfaces/Fetcher";
-import NoLogger from "../src/loggers/NoLogger";
-import tokens from "../config/tokens";
+import config from "../../config";
+import LiquidationBot from "../../src/LiquidationBot";
+import { Fetcher } from "../../src/interfaces/Fetcher";
+import NoLogger from "../../src/loggers/NoLogger";
+import tokens from "../../config/tokens";
 
-describe("Test Liquidation Bot", () => {
+describe("Test Liquidation Bot for Morpho-Aave", () => {
   let snapshotId: number;
   let morpho: Contract;
   let flashLiquidator: Contract;
@@ -82,12 +82,12 @@ describe("Test Liquidation Bot", () => {
     ));
     // get Morpho contract
     morpho = await ethers.getContractAt(
-      require("../abis/aave/Morpho.json"),
+      require("../../abis/aave/Morpho.json"),
       config.morphoAave,
       owner
     );
     lens = await ethers.getContractAt(
-      require("../abis/aave/Lens.json"),
+      require("../../abis/aave/Lens.json"),
       config.morphoAaveLens,
       owner
     );
@@ -292,7 +292,7 @@ describe("Test Liquidation Bot", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it("Should liquidate from from the run function", async () => {
+  it("Should liquidate from the run function", async () => {
     expect(await bot.run()).to.emit(flashLiquidator, "Liquidated");
   });
 });

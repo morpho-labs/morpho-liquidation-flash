@@ -16,7 +16,7 @@ import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol"
 import "../libraries/PercentageMath.sol";
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "../SharedLiquidator.sol";
+import "../common/SharedLiquidator.sol";
 
 abstract contract FlashMintLiquidatorBaseAave is
     ReentrancyGuard,

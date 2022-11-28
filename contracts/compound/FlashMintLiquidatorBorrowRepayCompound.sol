@@ -4,7 +4,7 @@ pragma solidity 0.8.13;
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBase.sol";
 
-contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
+contract FlashMintLiquidatorBorrowRepayCompound is FlashMintLiquidatorBase {
     using SafeTransferLib for ERC20;
     using CompoundMath for uint256;
     using PercentageMath for uint256;
@@ -82,23 +82,22 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
     /// @dev ERC-3156 Flash loan callback
     function onFlashLoan(
         address _initiator,
-        address _daiLoanedToken,
+        address ,
         uint256 _amount,
-        uint256 _fee,
+        uint256 ,
         bytes calldata data
     ) external override returns (bytes32) {
         if (msg.sender != address(lender)) revert UnknownLender();
         if (_initiator != address(this)) revert UnknownInitiator();
         FlashLoanParams memory flashLoanParams = _decodeData(data);
 
-        _flashLoanInternal(flashLoanParams, _amount, _amount + _fee);
+        _flashLoanInternal(flashLoanParams, _amount);
         return FLASHLOAN_CALLBACK;
     }
 
     function _flashLoanInternal(
         FlashLoanParams memory _flashLoanParams,
-        uint256 _amountIn,
-        uint256 _toRepayFlashLoan
+        uint256 _amountIn
     ) internal {
         if (_flashLoanParams.borrowedUnderlying != address(dai)) {
             dai.safeApprove(address(cDai), _amountIn);
@@ -139,7 +138,7 @@ contract FlashMintLiquidatorBorrowRepay is FlashMintLiquidatorBase {
                 address(uniswapV3Router),
                 maxIn
             );
-            uint256 amountIn = _doSecondSwap(
+            _doSecondSwap(
                 _flashLoanParams.path,
                 _flashLoanParams.toLiquidate,
                 maxIn

@@ -81,9 +81,9 @@ contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
     /// @dev ERC-3156 Flash loan callback
     function onFlashLoan(
         address _initiator,
-        address _daiLoanedToken,
+        address,
         uint256 _amount,
-        uint256 _fee,
+        uint256,
         bytes calldata data
     ) external override returns (bytes32) {
         if (msg.sender != address(lender)) revert UnknownLender();
@@ -136,7 +136,7 @@ contract FlashMintLiquidatorBorrowRepayAave is FlashMintLiquidatorBaseAave {
                 maxIn
             );
 
-            uint256 amountIn = _doSecondSwap(
+            _doSecondSwap(
                 _flashLoanParams.path,
                 _flashLoanParams.toLiquidate,
                 maxIn

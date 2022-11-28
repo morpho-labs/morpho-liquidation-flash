@@ -2,10 +2,10 @@
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { setupAave, setupToken } from "./setup";
+import { setupAave, setupToken } from "../setup";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import config from "../config";
+import config from "../../config";
 
 describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
   let snapshotId: number;
@@ -71,12 +71,12 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     // get Morpho contract
     morpho = new ethers.Contract(
       config.morphoAave,
-      require("../abis/aave/Morpho.json"),
+      require("../../abis/aave/Morpho.json"),
       owner
     );
     lens = new ethers.Contract(
       config.morphoAaveLens,
-      require("../abis/aave/Lens.json"),
+      require("../../abis/aave/Lens.json"),
       owner
     );
 
@@ -95,7 +95,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     await hre.network.provider.send("evm_revert", [snapshotId]);
   });
 
-  it("Should liquidate a user without a flash loan", async () => {
+  it.only("Should liquidate a user without a flash loan", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
 

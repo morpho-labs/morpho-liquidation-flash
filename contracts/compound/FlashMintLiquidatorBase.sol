@@ -1,18 +1,18 @@
 // SPDX-License-Identifier: GNU AGPLv3
 pragma solidity 0.8.13;
 
-import "./interface/IERC3156FlashLender.sol";
-import "./interface/IERC3156FlashBorrower.sol";
-import "./interface/IWETH.sol";
+import "../interface/IERC3156FlashLender.sol";
+import "../interface/IERC3156FlashBorrower.sol";
+import "../interface/IWETH.sol";
 
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 
 import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
-import "./libraries/PercentageMath.sol";
+import "../libraries/PercentageMath.sol";
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./SharedLiquidator.sol";
+import "../common/SharedLiquidator.sol";
 
 abstract contract FlashMintLiquidatorBase is
     ReentrancyGuard,

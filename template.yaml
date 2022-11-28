@@ -3,8 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   Morpho Liquidation Bot deployed using AWS Lambda function
 
-  
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+
 Globals:
   Function:
     Timeout: 800
