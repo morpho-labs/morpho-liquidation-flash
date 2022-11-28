@@ -3,8 +3,9 @@ pragma solidity 0.8.13;
 
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./FlashMintLiquidatorBase.sol";
+import "../common/ILiquidator.sol";
 
-contract FlashMintLiquidatorBorrowRepayCompound is FlashMintLiquidatorBase {
+contract FlashMintLiquidatorBorrowRepayCompound is FlashMintLiquidatorBase, ILiquidator {
     using SafeTransferLib for ERC20;
     using CompoundMath for uint256;
     using PercentageMath for uint256;

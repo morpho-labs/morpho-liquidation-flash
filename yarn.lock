@@ -988,6 +988,23 @@
     tweetnacl "^1.0.3"
     tweetnacl-util "^0.15.1"
 
+"@morpho-labs/ethers-multicall@^3.0.1":
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/@morpho-labs/ethers-multicall/-/ethers-multicall-3.0.1.tgz#b331886ee09642624e0e5361e667e1e74b00e51d"
+  integrity sha512-XduEmxxzanUWZlOI09XjDkRksHlpTGFwohHrZUHIiaXzQi2NDQjHj9GpfmHr9vGvQOYUF5HOe9yyylILqkSdcg==
+  dependencies:
+    dataloader "^2.1.0"
+    ethers "^5.0.0"
+    lodash "^4.17.21"
+
+"@morpho-labs/ethers-utils@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@morpho-labs/ethers-utils/-/ethers-utils-1.1.1.tgz#c6080a85373738a31e20a06fda5d34bba30e350e"
+  integrity sha512-cHCfJ2yY5P94ksLJ1723Rcm+H97H5Qns4T1lBqcpFC+7n/wVzYIATpY1TPVp2Cyu8is2u9/QCqM0W34mUQM53A==
+  dependencies:
+    dataloader "^2.1.0"
+    ethers "^5.7.0"
+
 "@morpho-labs/morpho-ethers-contract@^1.4.0":
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/@morpho-labs/morpho-ethers-contract/-/morpho-ethers-contract-1.4.0.tgz#e0b317171cdc38e47a434d48d7bf7260b4cc5ac5"
@@ -4152,6 +4169,11 @@ dashdash@^1.12.0:
   dependencies:
     assert-plus "^1.0.0"
 
+dataloader@^2.1.0:
+  version "2.1.0"
+  resolved "https://registry.yarnpkg.com/dataloader/-/dataloader-2.1.0.tgz#c69c538235e85e7ac6c6c444bae8ecabf5de9df7"
+  integrity sha512-qTcEYLen3r7ojZNgVUaRggOI+KM7jrKxXeSHhogh/TWxYMeONEMqY+hmkobiYQozsGIyg9OYVzO4ZIfoB4I0pQ==
+
 dayjs@^1.11.3:
   version "1.11.4"
   resolved "https://registry.yarnpkg.com/dayjs/-/dayjs-1.11.4.tgz#3b3c10ca378140d8917e06ebc13a4922af4f433e"
@@ -5506,7 +5528,7 @@ ethers@^4.0.32, ethers@^4.0.40:
     uuid "2.0.1"
     xmlhttprequest "1.8.0"
 
-ethers@^5.0.0:
+ethers@^5.0.0, ethers@^5.7.0:
   version "5.7.2"
   resolved "https://registry.yarnpkg.com/ethers/-/ethers-5.7.2.tgz#3a7deeabbb8c030d4126b24f84e525466145872e"
   integrity sha512-wswUsmWo1aOK8rR7DIKiWSw9DbLWe6x98Jrn8wcTflTVvaXhAMaB5zGAXy0GYQEQp9iO1iSHWVyARQm11zUtyg==

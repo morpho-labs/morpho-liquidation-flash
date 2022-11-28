@@ -16,6 +16,8 @@
     "@ethersproject/abi": "^5.0.0",
     "@ethersproject/bytes": "^5.0.0",
     "@ethersproject/providers": "^5.0.0",
+    "@morpho-labs/ethers-multicall": "^3.0.1",
+    "@morpho-labs/ethers-utils": "^1.1.1",
     "@morpho-labs/morpho-ethers-contract": "^1.4.0",
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
     "@openzeppelin/contracts": "4.6.0",

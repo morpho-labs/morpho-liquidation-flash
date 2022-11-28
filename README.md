@@ -11,13 +11,13 @@ The first version of the Liquidator contract uses a MakerDAO Flash loan of DAI, 
 Building contracts:
 
 ```shell
-yarn hardhat compile
+yarn compile
 ```
 
 Running tests:
 
 ```shell
-yarn hardhat test
+yarn test
 ```
 
 ## Liquidation bot
