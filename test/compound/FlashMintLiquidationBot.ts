@@ -220,7 +220,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
 
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
 
-    const usdtToSupply = parseUnits("1000");
+    const usdtToSupply = parseUnits("1000", config.tokens.usdt.decimals);
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
@@ -264,7 +264,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     const params = await bot.getUserLiquidationParams(userToLiquidate!.address);
 
     expect(params.collateralMarket.market.toLowerCase()).eq(
-      cUsdtToken.address.toLowerCase()
+      cDaiToken.address.toLowerCase()
     );
     const path = bot.getPath(
       params.debtMarket.market,
@@ -272,7 +272,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     );
     const expectedPath = ethers.utils.solidityPack(
       ["address", "uint24", "address"],
-      [usdcToken.address, config.swapFees.stable, usdtToken.address]
+      [usdcToken.address, config.swapFees.stable, daiToken.address]
     );
     expect(path).to.be.eq(expectedPath);
     const collateralBalanceBefore = await usdtToken.balanceOf(

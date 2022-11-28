@@ -100,6 +100,13 @@ export default class LiquidationBot {
         };
       })
     );
+    console.table(
+      balances.map((b) => ({
+        balance: b.totalSupplyBalanceUSD.toString(),
+        market: b.market,
+        liquidationBonus: b.liquidationBonus.toString(),
+      }))
+    );
     const [debtMarket] = balances.sort((a, b) =>
       a.totalBorrowBalanceUSD.gt(b.totalBorrowBalanceUSD) ? -1 : 1
     );

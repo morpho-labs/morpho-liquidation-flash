@@ -4,6 +4,7 @@ import { parseUnits } from "ethers/lib/utils";
 import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
 import config from "../config";
 import { ERC20, IAToken__factory, ICToken__factory } from "../typechain";
+import { MorphoAaveV2 } from "@morpho-labs/morpho-ethers-contract";
 export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await morpho.getAllMarkets();
 
@@ -44,10 +45,6 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
     config.tokens.usdc.cToken,
     parseUnits("1", 18 * 2 - 6)
   );
-  await oracle.setUnderlyingPrice(
-    config.tokens.fei.cToken,
-    parseUnits("1", 18 * 2 - 18)
-  );
   // @ts-ignore
   const adminAddress = await comptroller.admin();
   await hre.network.provider.send("hardhat_impersonateAccount", [adminAddress]);
@@ -56,19 +53,11 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
     ethers.utils.parseEther("10").toHexString(),
   ]);
   const admin = await ethers.getSigner(adminAddress);
-  return { comptroller, oracle: oracle, admin };
+  return { comptroller, oracle, admin };
 };
 
 export const setupAave = async (morpho: Contract, signer: Signer) => {
-  const markets: string[] = [
-    "0x028171bca77440897b824ca71d1c56cac55b68a3",
-    "0x030ba81f1c18d280636f32af80b9aad02cf0854e",
-    "0xbcca60bb61934080951369a648fb03df4f96263c",
-    "0x3ed3b47dd13ec9a98b44e6204a523e766b225811",
-    "0x9ff58f4ffb29fa2266ab25e75e2a8b3503311656",
-    "0x1982b2f5814301d4e9a8b0201555376e62f82428",
-    "0x8dae6cb04688c62d939ed9b68d32bc62e49970b1",
-  ];
+  const markets: string[] = await (morpho as MorphoAaveV2).getMarketsCreated();
 
   const addressesProvider = (await ethers.getContractAt(
     require("../abis/aave/AddressesProvider.json"),

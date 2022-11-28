@@ -178,7 +178,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
 
-  it("Should liquidate a user with a flash loan, borrow/repay on aave and a dai/usdc swap", async () => {
+  it.only("Should liquidate a user with a flash loan, borrow/repay on aave and a dai/usdc swap", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
 

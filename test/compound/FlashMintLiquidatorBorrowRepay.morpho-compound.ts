@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-expressions, node/no-missing-import */
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { Contract, Signer } from "ethers";
@@ -23,12 +22,12 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
 
   let daiToken: Contract;
   let usdcToken: Contract;
-  let feiToken: Contract;
+  let usdtToken: Contract;
   let wEthToken: Contract;
 
   let cDaiToken: Contract;
   let cUsdcToken: Contract;
-  let cFeiToken: Contract;
+  let cUsdtToken: Contract;
   let cEthToken: Contract;
 
   const initialize = async () => {
@@ -63,17 +62,17 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
       [owner, liquidator, borrower],
       parseUnits("100000", config.tokens.dai.decimals)
     ));
-    ({ token: feiToken, cToken: cFeiToken } = await setupToken(
-      config.tokens.fei,
+    ({ token: usdtToken, cToken: cUsdtToken } = await setupToken(
+      config.tokens.usdt,
       owner,
       [owner, liquidator, borrower],
-      parseUnits("100000", config.tokens.fei.decimals)
+      parseUnits("100000", config.tokens.usdt.decimals)
     ));
     ({ cToken: cEthToken, token: wEthToken } = await setupToken(
       config.tokens.wEth,
       owner,
       [owner, liquidator, borrower],
-      parseUnits("100000", config.tokens.fei.decimals)
+      parseUnits("100000", config.tokens.wEth.decimals)
     ));
     // get Morpho contract
     morpho = await ethers.getContractAt(
@@ -427,7 +426,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
     // we swap all the debt
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-  it("Should liquidate a user with a flash loan with FEI debt and USDC collateral (borrow/repay and swap)", async () => {
+  it("Should liquidate a user with a flash loan with USDT debt and USDC collateral (borrow/repay and swap)", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10", 6);
     await usdcToken.connect(borrower).approve(morpho.address, toSupply);
@@ -439,15 +438,15 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
         toSupply
       );
 
-    // price is 1/1 between fei & usd
+    // price is 1/1 between usdt & usd
     const { maxDebtValue: toBorrow } = await lens.getUserBalanceStates(
       borrowerAddress,
-      [cUsdcToken.address, cFeiToken.address]
+      [cUsdcToken.address, cUsdtToken.address]
     );
 
     await morpho
       .connect(borrower)
-      ["borrow(address,uint256)"](cFeiToken.address, toBorrow);
+      ["borrow(address,uint256)"](cUsdtToken.address, toBorrow);
 
     await oracle.setUnderlyingPrice(
       cUsdcToken.address,
@@ -458,10 +457,10 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
     await hre.network.provider.send("evm_mine", []);
 
     const { onPool: debtOnPool, inP2P: debtInP2P } =
-      await morpho.borrowBalanceInOf(cFeiToken.address, borrower.getAddress());
+      await morpho.borrowBalanceInOf(cUsdtToken.address, borrower.getAddress());
 
-    const debtPoolIndex = await cFeiToken.borrowIndex();
-    const debtP2PIndex = await morpho.p2pBorrowIndex(cFeiToken.address);
+    const debtPoolIndex = await cUsdtToken.borrowIndex();
+    const debtP2PIndex = await morpho.p2pBorrowIndex(cUsdtToken.address);
     const toLiquidate = debtOnPool
       .mul(debtPoolIndex)
       .add(debtInP2P.mul(debtP2PIndex))
@@ -474,13 +473,13 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
 
     const path = ethers.utils.solidityPack(
       ["address", "uint24", "address"],
-      [feiToken.address, config.swapFees.classic, usdcToken.address]
+      [usdtToken.address, config.swapFees.classic, usdcToken.address]
     );
     expect(
       await flashLiquidator
         .connect(liquidator)
         .liquidate(
-          cFeiToken.address,
+          cUsdtToken.address,
           cUsdcToken.address,
           borrowerAddress,
           toLiquidate,
@@ -505,7 +504,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
         toSupply
       );
 
-    // price is 1/1 between fei & usd
+    // price is 1/1 between usdt & usd
     const { maxDebtValue: toBorrowUSD } = await lens.getUserBalanceStates(
       borrowerAddress,
       [cUsdcToken.address, cEthToken.address]
