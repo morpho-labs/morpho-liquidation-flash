@@ -115,7 +115,12 @@ export const setupAave = async (morpho: Contract, signer: Signer) => {
   ]);
   const admin = await ethers.getSigner(adminAddress);
   await addressesProvider.connect(admin).setPriceOracle(oracle.address);
-  return { lendingPool, addressesProvider, oracle, admin };
+  return {
+    lendingPool,
+    addressesProvider,
+    oracle,
+    admin,
+  };
 };
 
 export interface TokenConfig {

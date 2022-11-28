@@ -2,6 +2,9 @@
   "name": "morpho-liquidation-flash",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "repository": "git@github.com:morpho-labs/morpho-liquidation-flash.git",
   "author": "julien <julien.thomas84@gmail.com>",
   "license": "MIT",

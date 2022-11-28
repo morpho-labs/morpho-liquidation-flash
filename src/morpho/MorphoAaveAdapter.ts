@@ -123,7 +123,7 @@ export default class MorphoAaveAdapter implements IMorphoAdapter {
     if (!this._decimalsMap[underlying]) {
       const contract = ERC20__factory.connect(
         underlying,
-        this.morpho.provider as any
+        this.lens.provider as any
       );
       this._decimalsMap[underlying] = await contract.decimals();
     }
@@ -134,10 +134,7 @@ export default class MorphoAaveAdapter implements IMorphoAdapter {
   private async _getUnderlying(market: string): Promise<string> {
     let underlying = underlyings[market.toLowerCase()];
     if (!underlying) {
-      const aToken = AToken__factory.connect(
-        market,
-        this.morpho.provider as any
-      );
+      const aToken = AToken__factory.connect(market, this.lens.provider as any);
       underlying = (await aToken.UNDERLYING_ASSET_ADDRESS()).toLowerCase();
     }
     return underlying;

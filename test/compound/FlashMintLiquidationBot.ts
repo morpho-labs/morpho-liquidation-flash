@@ -10,18 +10,15 @@ import config from "../../config";
 import LiquidationBot from "../../src/LiquidationBot";
 import { Fetcher } from "../../src/interfaces/Fetcher";
 import NoLogger from "../../src/loggers/NoLogger";
-import { ERC20, ERC20Interface } from "../../typechain/ERC20";
-import { ICToken, ICTokenInterface } from "../../typechain/ICToken";
 import {
   FlashMintLiquidatorBorrowRepayCompound,
   SimplePriceOracle,
+  ERC20,
+  ICToken,
 } from "../../typechain";
-import { ICompoundOracleInterface } from "../../typechain/ICompoundOracle";
-import {
-  MorphoCompoundLens,
-  MorphoCompoundLensInterface,
-} from "@morpho-labs/morpho-ethers-contract/lib/compound/MorphoCompoundLens";
+import { MorphoCompoundLens } from "@morpho-labs/morpho-ethers-contract/lib/compound/MorphoCompoundLens";
 import { MorphoCompoundLens__factory } from "@morpho-labs/morpho-ethers-contract";
+import MorphoCompoundAdapter from "../../src/morpho/MorphoCompoundAdapter";
 
 describe("Test Liquidation Bot for Morpho-Compound", () => {
   let snapshotId: number;
@@ -120,14 +117,13 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
       },
     };
     ({ admin, oracle, comptroller } = await setupCompound(morpho, owner));
+    const adapter = new MorphoCompoundAdapter(lens, oracle);
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
       liquidator,
-      morpho,
-      lens,
-      oracle as unknown as Contract,
       flashLiquidator,
+      adapter,
       { profitableThresholdUSD: parseUnits("10") }
     );
     await comptroller.connect(admin)._setPriceOracle(oracle.address);
@@ -365,12 +361,6 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
       cUsdcToken.address.toLowerCase()
     );
 
-    const toRepay = await lens.computeLiquidationRepayAmount(
-      borrowerAddress,
-      params.debtMarket.market,
-      params.collateralMarket.market,
-      [params.collateralMarket.market, params.debtMarket.market]
-    );
     const path = bot.getPath(
       params.debtMarket.market,
       params.collateralMarket.market

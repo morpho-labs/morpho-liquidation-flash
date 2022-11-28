@@ -177,11 +177,13 @@ export default class LiquidationBot {
 
   async liquidate(...args: any) {
     if (!this.signer) return;
-    const tx: providers.TransactionResponse = await this.liquidator
+    const tx = await this.liquidator
       .connect(this.signer)
+      // @ts-ignore
       .liquidate(...args, { gasLimit: 8_000_000 })
       .catch(this.logError.bind(this));
-    this.logger.log(tx.hash);
+    if (!tx) return;
+    this.logger.log(tx);
     const receipt = await tx.wait().catch(this.logError.bind(this));
     if (receipt) this.logger.log(`Gas used: ${receipt.gasUsed.toString()}`);
   }

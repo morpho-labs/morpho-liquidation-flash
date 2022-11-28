@@ -10,17 +10,24 @@ import LiquidationBot from "../../src/LiquidationBot";
 import { Fetcher } from "../../src/interfaces/Fetcher";
 import NoLogger from "../../src/loggers/NoLogger";
 import tokens from "../../config/tokens";
-import { ERC20, IAToken } from "../../typechain";
 import {
+  ERC20,
+  FlashMintLiquidatorBorrowRepayAave,
+  IAToken,
+  SimplePriceOracle,
+} from "../../typechain";
+import {
+  AavePriceOracle,
   MorphoAaveV2Lens,
   MorphoAaveV2Lens__factory,
 } from "@morpho-labs/morpho-ethers-contract";
+import MorphoAaveAdapter from "../../src/morpho/MorphoAaveAdapter";
 
 describe("Test Liquidation Bot for Morpho-Aave", () => {
   let snapshotId: number;
   let morpho: Contract;
-  let flashLiquidator: Contract;
-  let oracle: Contract;
+  let flashLiquidator: FlashMintLiquidatorBorrowRepayAave;
+  let oracle: SimplePriceOracle;
   let lens: MorphoAaveV2Lens;
 
   let owner: Signer;
@@ -105,17 +112,18 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       },
     };
     ({ admin, oracle } = await setupAave(morpho, owner));
+    const adapter = new MorphoAaveAdapter(
+      lens,
+      oracle as unknown as AavePriceOracle
+    );
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
       liquidator,
-      morpho,
-      lens,
-      oracle,
       flashLiquidator,
+      adapter,
       {
-        profitableThresholdUSD: parseUnits("0.01"), // in ETH for aave
-        protocol: "aave",
+        profitableThresholdUSD: parseUnits("0.01"),
       }
     );
 

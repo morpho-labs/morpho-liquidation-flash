@@ -7,6 +7,7 @@ import { PercentMath, WadRayMath } from "@morpho-labs/ethers-utils/lib/maths";
 import { pow10 } from "../../test/helpers";
 
 export default class MorphoCompoundAdapter implements IMorphoAdapter {
+  static LIQUIDATION_BONUS = BigNumber.from(10_700);
   // eslint-disable-next-line no-useless-constructor
   constructor(
     public lens: MorphoCompoundLens,
@@ -74,6 +75,6 @@ export default class MorphoCompoundAdapter implements IMorphoAdapter {
   }
 
   public async getLiquidationBonus(market: string): Promise<BigNumber> {
-    return BigNumber.from(10_700);
+    return MorphoCompoundAdapter.LIQUIDATION_BONUS;
   }
 }
