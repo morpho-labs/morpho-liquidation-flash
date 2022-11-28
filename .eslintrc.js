@@ -21,5 +21,6 @@ module.exports = {
       { ignores: ["modules"] },
     ],
     "node/no-unpublished-import": "off",
+    camelcase: "off",
   },
 };

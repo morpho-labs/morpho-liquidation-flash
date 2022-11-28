@@ -6,28 +6,35 @@ import { setupAave, setupToken } from "../setup";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../../config";
-
+import {
+  ERC20,
+  FlashMintLiquidatorBorrowRepayAave,
+  IAToken,
+} from "../../typechain";
 describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
   let snapshotId: number;
   let morpho: Contract;
+  // eslint-disable-next-line no-unused-vars
   let lendingPool: Contract;
+  // eslint-disable-next-line no-unused-vars
   let addressesProvider: Contract;
-  let flashLiquidator: Contract;
+  let flashLiquidator: FlashMintLiquidatorBorrowRepayAave;
   let oracle: Contract;
   let lens: Contract;
 
   let owner: Signer;
+  // eslint-disable-next-line no-unused-vars
   let admin: SignerWithAddress; // comptroller admin
   let liquidator: Signer;
   let borrower: Signer;
 
-  let daiToken: Contract;
-  let usdcToken: Contract;
-  let wEthToken: Contract;
+  let daiToken: ERC20;
+  let usdcToken: ERC20;
+  let wEthToken: ERC20;
 
-  let aDaiToken: Contract;
-  let aUsdcToken: Contract;
-  let aEthToken: Contract;
+  let aDaiToken: IAToken;
+  let aUsdcToken: IAToken;
+  let aEthToken: IAToken;
 
   const initialize = async () => {
     [owner, liquidator, borrower] = await ethers.getSigners();
@@ -95,7 +102,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     await hre.network.provider.send("evm_revert", [snapshotId]);
   });
 
-  it.only("Should liquidate a user without a flash loan", async () => {
+  it("Should liquidate a user without a flash loan", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
 
@@ -122,9 +129,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
       aDaiToken.address
     );
 
-    const toWithdraw = toSupply.mul(8500 - 7700).div(10_000); // 85% - 77%
-
-    await morpho.connect(borrower).withdraw(aDaiToken.address, toWithdraw);
+    await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
 
     const daiPrice: BigNumber = await oracle.getAssetPrice(daiToken.address);
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
@@ -185,11 +190,6 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
         borrowerAddress,
         toSupply
       );
-    const { totalBalance: totalSupply } =
-      await lens.getCurrentSupplyBalanceInOf(
-        aDaiToken.address,
-        borrowerAddress
-      );
     const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
       borrowerAddress,
       aUsdcToken.address
@@ -204,10 +204,7 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
       borrowerAddress,
       aDaiToken.address
     );
-    // do it manually while the lens is nt updated
-    const toWithdraw = totalSupply.mul(8500 - 7700).div(10_000); // 80% - 77%
-
-    await morpho.connect(borrower).withdraw(aDaiToken.address, toWithdraw);
+    await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
 
     const daiPrice: BigNumber = await oracle.getAssetPrice(daiToken.address);
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
@@ -269,11 +266,6 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
         borrowerAddress,
         toSupply
       );
-    const { totalBalance: totalSupply } =
-      await lens.getCurrentSupplyBalanceInOf(
-        aEthToken.address,
-        borrowerAddress
-      );
     const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
       borrowerAddress,
       aUsdcToken.address
@@ -288,10 +280,8 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
       borrowerAddress,
       aEthToken.address
     );
-    // do it manually while the lens is nt updated
-    const toWithdraw = totalSupply.mul(8500 - 8250).div(10_000); // 80% - 77%
 
-    await morpho.connect(borrower).withdraw(aEthToken.address, toWithdraw);
+    await morpho.connect(borrower).withdraw(aEthToken.address, withdrawable);
 
     const ethPrice: BigNumber = await oracle.getAssetPrice(wEthToken.address);
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
@@ -351,11 +341,6 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
         borrowerAddress,
         toSupply
       );
-    const { totalBalance: totalSupply } =
-      await lens.getCurrentSupplyBalanceInOf(
-        aEthToken.address,
-        borrowerAddress
-      );
     const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
       borrowerAddress,
       aDaiToken.address
@@ -370,10 +355,8 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
       borrowerAddress,
       aEthToken.address
     );
-    // do it manually while the lens is nt updated
-    const toWithdraw = totalSupply.mul(8500 - 8250).div(10_000); // 80% - 77%
 
-    await morpho.connect(borrower).withdraw(aEthToken.address, toWithdraw);
+    await morpho.connect(borrower).withdraw(aEthToken.address, withdrawable);
 
     const ethPrice: BigNumber = await oracle.getAssetPrice(wEthToken.address);
     const daiPrice: BigNumber = await oracle.getAssetPrice(daiToken.address);
@@ -423,35 +406,38 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
   });
 
   it("Should the admin be able to withdraw funds", async () => {
+    const ownerAddress = await owner.getAddress();
     const usdcAmount = parseUnits("10", 6);
     // transfer to liquidate without flash loans
     await usdcToken
       .connect(owner)
       .transfer(flashLiquidator.address, usdcAmount);
 
-    const balanceBefore = await usdcToken.balanceOf(owner.getAddress());
+    const balanceBefore = await usdcToken.balanceOf(ownerAddress);
     expect(
       await flashLiquidator
         .connect(owner)
-        .withdraw(usdcToken.address, owner.getAddress(), usdcAmount)
+        .withdraw(usdcToken.address, ownerAddress, usdcAmount)
     ).to.emit(flashLiquidator, "Withdrawn");
-    const balanceAfter = await usdcToken.balanceOf(owner.getAddress());
+    const balanceAfter = await usdcToken.balanceOf(ownerAddress);
     expect(balanceAfter.sub(balanceBefore).eq(usdcAmount)).to.be.true;
   });
 
   it("Should the admin be able to withdraw a part of the funds", async () => {
+    const ownerAddress = await owner.getAddress();
+
     const usdcAmount = parseUnits("10", 6);
     await usdcToken
       .connect(owner)
       .transfer(flashLiquidator.address, usdcAmount);
 
-    const balanceBefore = await usdcToken.balanceOf(owner.getAddress());
+    const balanceBefore = await usdcToken.balanceOf(ownerAddress);
     expect(
       await flashLiquidator
         .connect(owner)
-        .withdraw(usdcToken.address, owner.getAddress(), usdcAmount.div(2))
+        .withdraw(usdcToken.address, ownerAddress, usdcAmount.div(2))
     ).to.emit(flashLiquidator, "Withdrawn");
-    const balanceAfter = await usdcToken.balanceOf(owner.getAddress());
+    const balanceAfter = await usdcToken.balanceOf(ownerAddress);
     expect(balanceAfter.sub(balanceBefore).eq(usdcAmount.div(2))).to.be.true;
   });
   it("Should not a non admin be able to withdraw funds", async () => {
@@ -463,7 +449,11 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     expect(
       flashLiquidator
         .connect(owner)
-        .withdraw(usdcToken.address, liquidator.getAddress(), usdcAmount.div(2))
+        .withdraw(
+          usdcToken.address,
+          await liquidator.getAddress(),
+          usdcAmount.div(2)
+        )
     ).to.revertedWith("");
   });
 

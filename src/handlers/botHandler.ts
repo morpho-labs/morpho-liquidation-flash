@@ -1,6 +1,6 @@
 import { Contract, providers, Wallet } from "ethers";
 import config from "../../config";
-import GraphFetcher from "../fetcher/GraphFetcher";
+import CompoundGraphFetcher from "../fetcher/CompoundGraphFetcher";
 import LiquidationBot from "../LiquidationBot";
 import ConsoleLog from "../loggers/ConsoleLog";
 import { parseUnits } from "ethers/lib/utils";
@@ -13,7 +13,7 @@ export const handler = async () => {
   if (!privateKey) throw Error("No PRIVATE_KEY provided");
   const provider = new providers.AlchemyProvider(1, process.env.ALCHEMY_KEY);
   const liquidatorContractName = isCompound
-    ? "FlashMintLiquidatorBorrowRepay"
+    ? "FlashMintLiquidatorBorrowRepayCompound"
     : "FlashMintLiquidatorBorrowRepayAave";
   const flashLiquidator = new Contract(
     process.env.LIQUIDATOR_ADDRESS ?? config.liquidator,
@@ -40,7 +40,7 @@ export const handler = async () => {
   );
   const signer = new Wallet(privateKey, provider);
   const fetcher = isCompound
-    ? new GraphFetcher(config.graphUrl.morphoCompound, 500)
+    ? new CompoundGraphFetcher(config.graphUrl.morphoCompound, 500)
     : new AaveGraphFetcher(config.graphUrl.morphoAave);
   const bot = new LiquidationBot(
     new ConsoleLog(),

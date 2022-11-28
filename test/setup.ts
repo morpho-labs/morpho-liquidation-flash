@@ -3,6 +3,7 @@ import hre, { ethers } from "hardhat";
 import { parseUnits } from "ethers/lib/utils";
 import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
 import config from "../config";
+import { ERC20, IAToken__factory, ICToken__factory } from "../typechain";
 export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await morpho.getAllMarkets();
 
@@ -55,7 +56,7 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
     ethers.utils.parseEther("10").toHexString(),
   ]);
   const admin = await ethers.getSigner(adminAddress);
-  return { comptroller, oracle: oracle as Contract, admin };
+  return { comptroller, oracle: oracle, admin };
 };
 
 export const setupAave = async (morpho: Contract, signer: Signer) => {
@@ -114,7 +115,7 @@ export const setupAave = async (morpho: Contract, signer: Signer) => {
   ]);
   const admin = await ethers.getSigner(adminAddress);
   await addressesProvider.connect(admin).setPriceOracle(oracle.address);
-  return { lendingPool, addressesProvider, oracle: oracle as Contract, admin };
+  return { lendingPool, addressesProvider, oracle, admin };
 };
 
 export interface TokenConfig {
@@ -130,11 +131,11 @@ export const setupToken = async (
   accounts: Signer[],
   amountToFill: BigNumber
 ) => {
-  const token = await ethers.getContractAt(
+  const token = (await ethers.getContractAt(
     require("../abis/ERC20.json"),
     config.address,
     owner
-  );
+  )) as unknown as ERC20;
   await Promise.all(
     accounts.map(async (acc) => {
       const balanceOfUserStorageSlot = getBalanceOfStorageSlot(
@@ -150,7 +151,7 @@ export const setupToken = async (
   );
   return {
     token,
-    cToken: new Contract(config.cToken, require("../abis/CToken.json"), owner),
-    aToken: new Contract(config.aToken, require("../abis/AToken.json"), owner),
+    cToken: ICToken__factory.connect(config.cToken, owner),
+    aToken: IAToken__factory.connect(config.aToken, owner),
   };
 };

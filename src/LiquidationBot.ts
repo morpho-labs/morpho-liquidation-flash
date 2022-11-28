@@ -1,4 +1,11 @@
-import { BigNumber, Contract, providers, Signer } from "ethers";
+import {
+  BigNumber,
+  constants,
+  Contract,
+  getDefaultProvider,
+  providers,
+  Signer,
+} from "ethers";
 import { Logger } from "./interfaces/logger";
 import { Fetcher } from "./interfaces/Fetcher";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
@@ -8,6 +15,7 @@ import { ethers } from "hardhat";
 import config from "../config";
 import underlyings from "./constant/underlyings";
 import { getPoolData, UniswapPool } from "./uniswap/pools";
+import { AToken__factory } from "@morpho-labs/morpho-ethers-contract";
 
 export type Protocol = "aave" | "compound";
 
@@ -28,7 +36,7 @@ export default class LiquidationBot {
   constructor(
     public readonly logger: Logger,
     public readonly fetcher: Fetcher,
-    public readonly signer: Signer,
+    public readonly signer: Signer | undefined,
     public readonly morpho: Contract,
     public readonly lens: Contract,
     public readonly oracle: Contract,
@@ -36,6 +44,13 @@ export default class LiquidationBot {
     settings: Partial<LiquidationBotSettings> = {}
   ) {
     this.settings = { ...defaultSettings, ...settings };
+  }
+
+  get provider() {
+    if (this.signer?.provider) return this.signer.provider;
+    if (process.env.ALCHEMY_KEY)
+      return new providers.AlchemyProvider("1", process.env.ALCHEMY_KEY);
+    return getDefaultProvider();
   }
 
   async computeLiquidableUsers() {
@@ -75,7 +90,7 @@ export default class LiquidationBot {
       const price = await this.oracle.getUnderlyingPrice(market);
       return {
         price,
-        balances: balances.map((b) => b.mul(price).div(pow10(18))),
+        balances: balances.map((b) => b.mul(price).div(constants.WeiPerEther)),
       };
     }
     const price = await this.oracle.getAssetPrice(underlyings[market]);
@@ -167,15 +182,13 @@ export default class LiquidationBot {
           .mul(pow10(18))
           .div(collateralMarket.price);
       } else {
-        const decimals: number = await new Contract(
+        const decimals = await AToken__factory.connect(
           debtMarket.market,
-          require("../abis/AToken.json"),
-          this.signer
+          this.provider as any
         ).decimals();
-        const collateralDecimals: number = await new Contract(
+        const collateralDecimals = await AToken__factory.connect(
           collateralMarket.market,
-          require("../abis/AToken.json"),
-          this.signer
+          this.provider as any
         ).decimals();
         toLiquidate = toLiquidate.mul(pow10(decimals)).div(debtMarket.price);
         rewardedUSD = toLiquidate
@@ -257,6 +270,7 @@ export default class LiquidationBot {
   }
 
   async liquidate(...args: any) {
+    if (!this.signer) return;
     const tx: providers.TransactionResponse = await this.liquidator
       .connect(this.signer)
       .liquidate(...args, { gasLimit: 8_000_000 })

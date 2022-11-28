@@ -13,6 +13,10 @@
     "build:bot": "yarn compile && tsc"
   },
   "dependencies": {
+    "@ethersproject/abi": "^5.0.0",
+    "@ethersproject/bytes": "^5.0.0",
+    "@ethersproject/providers": "^5.0.0",
+    "@morpho-labs/morpho-ethers-contract": "^1.4.0",
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
     "@openzeppelin/contracts": "4.6.0",
     "@rari-capital/solmate": "6.4.0",
@@ -24,6 +28,7 @@
     "aws-sdk": "^2.1181.0",
     "axios": "^0.27.2",
     "hardhat": "^2.9.6",
+    "lodash": "^4.17.21",
     "serverless": "^3.21.0",
     "slot20": "^0.0.3"
   },

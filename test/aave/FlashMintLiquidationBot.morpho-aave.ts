@@ -10,29 +10,35 @@ import LiquidationBot from "../../src/LiquidationBot";
 import { Fetcher } from "../../src/interfaces/Fetcher";
 import NoLogger from "../../src/loggers/NoLogger";
 import tokens from "../../config/tokens";
+import { ERC20, IAToken } from "../../typechain";
+import {
+  MorphoAaveV2Lens,
+  MorphoAaveV2Lens__factory,
+} from "@morpho-labs/morpho-ethers-contract";
 
 describe("Test Liquidation Bot for Morpho-Aave", () => {
   let snapshotId: number;
   let morpho: Contract;
   let flashLiquidator: Contract;
   let oracle: Contract;
-  let lens: Contract;
+  let lens: MorphoAaveV2Lens;
 
   let owner: Signer;
+  // eslint-disable-next-line no-unused-vars
   let admin: SignerWithAddress; // aave admin
   let liquidator: Signer;
   let borrower: Signer;
   let liquidableUser: Signer;
 
-  let daiToken: Contract;
-  let usdcToken: Contract;
-  let wEthToken: Contract;
-  let usdtToken: Contract;
+  let daiToken: ERC20;
+  let usdcToken: ERC20;
+  let wEthToken: ERC20;
+  let usdtToken: ERC20;
 
-  let aDaiToken: Contract;
-  let aUsdcToken: Contract;
-  let aEthToken: Contract;
-  let aUsdtToken: Contract;
+  let aDaiToken: IAToken;
+  let aUsdcToken: IAToken;
+  let aEthToken: IAToken;
+  let aUsdtToken: IAToken;
 
   let bot: LiquidationBot;
   let fetcher: Fetcher;
@@ -86,11 +92,7 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       config.morphoAave,
       owner
     );
-    lens = await ethers.getContractAt(
-      require("../../abis/aave/Lens.json"),
-      config.morphoAaveLens,
-      owner
-    );
+    lens = MorphoAaveV2Lens__factory.connect(config.morphoAaveLens, owner);
     fetcher = {
       fetchUsers: async () => {
         const borrowerAddress = await borrower.getAddress();
@@ -128,11 +130,7 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
         borrowerAddress,
         toSupply
       );
-    const { totalBalance: totalSupply } =
-      await lens.getCurrentSupplyBalanceInOf(
-        aEthToken.address,
-        borrowerAddress
-      );
+
     const { borrowable } = await lens.getUserMaxCapacitiesForAsset(
       borrowerAddress,
       aUsdcToken.address
@@ -142,12 +140,14 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       .connect(liquidableUser)
       ["borrow(address,uint256)"](aUsdcToken.address, borrowable);
 
-    // do it manually while the lens is nt updated
-    const toWithdraw = totalSupply.mul(8500 - 8250).div(10_000); // 80% - 77%
+    const { withdrawable } = await lens.getUserMaxCapacitiesForAsset(
+      borrowerAddress,
+      aEthToken.address
+    );
 
     await morpho
       .connect(liquidableUser)
-      .withdraw(aEthToken.address, toWithdraw);
+      .withdraw(aEthToken.address, withdrawable);
 
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
 
@@ -239,8 +239,11 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       .connect(borrower)
       ["borrow(address,uint256)"](aUsdtToken.address, borrowable);
 
-    const toWithdraw = toSupply.mul(9000 - 7700).div(10_000); // 90% - 77% for DAI
-    await morpho.connect(borrower).withdraw(aDaiToken.address, toWithdraw);
+    const { withdrawable } = await lens.getUserMaxCapacitiesForAsset(
+      borrowerAddress,
+      aDaiToken.address
+    );
+    await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
     const daiPrice = await oracle.getAssetPrice(daiToken.address);
     await oracle.setAssetPrice(
       daiToken.address,

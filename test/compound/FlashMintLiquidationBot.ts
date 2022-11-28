@@ -10,14 +10,26 @@ import config from "../../config";
 import LiquidationBot from "../../src/LiquidationBot";
 import { Fetcher } from "../../src/interfaces/Fetcher";
 import NoLogger from "../../src/loggers/NoLogger";
+import { ERC20, ERC20Interface } from "../../typechain/ERC20";
+import { ICToken, ICTokenInterface } from "../../typechain/ICToken";
+import {
+  FlashMintLiquidatorBorrowRepayCompound,
+  SimplePriceOracle,
+} from "../../typechain";
+import { ICompoundOracleInterface } from "../../typechain/ICompoundOracle";
+import {
+  MorphoCompoundLens,
+  MorphoCompoundLensInterface,
+} from "@morpho-labs/morpho-ethers-contract/lib/compound/MorphoCompoundLens";
+import { MorphoCompoundLens__factory } from "@morpho-labs/morpho-ethers-contract";
 
 describe("Test Liquidation Bot for Morpho-Compound", () => {
   let snapshotId: number;
   let morpho: Contract;
   let comptroller: Contract;
-  let flashLiquidator: Contract;
-  let oracle: Contract;
-  let lens: Contract;
+  let flashLiquidator: FlashMintLiquidatorBorrowRepayCompound;
+  let oracle: SimplePriceOracle;
+  let lens: MorphoCompoundLens;
 
   let owner: Signer;
   let admin: SignerWithAddress; // comptroller admin
@@ -25,17 +37,17 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
   let borrower: Signer;
   let liquidableUser: Signer;
 
-  let daiToken: Contract;
-  let usdcToken: Contract;
-  let feiToken: Contract;
-  let wEthToken: Contract;
-  let compToken: Contract;
+  let daiToken: ERC20;
+  let usdcToken: ERC20;
+  let usdtToken: ERC20;
+  let wEthToken: ERC20;
+  let compToken: ERC20;
 
-  let cDaiToken: Contract;
-  let cUsdcToken: Contract;
-  let cFeiToken: Contract;
-  let cEthToken: Contract;
-  let cCompToken: Contract;
+  let cDaiToken: ICToken;
+  let cUsdcToken: ICToken;
+  let cUsdtToken: ICToken;
+  let cEthToken: ICToken;
+  let cCompToken: ICToken;
 
   let bot: LiquidationBot;
   let fetcher: Fetcher;
@@ -70,11 +82,11 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
       [owner, liquidator, borrower, liquidableUser],
       parseUnits("1000000000", config.tokens.dai.decimals)
     ));
-    ({ token: feiToken, cToken: cFeiToken } = await setupToken(
-      config.tokens.fei,
+    ({ token: usdtToken, cToken: cUsdtToken } = await setupToken(
+      config.tokens.usdt,
       owner,
       [owner, liquidator, borrower, liquidableUser],
-      parseUnits("100000", config.tokens.fei.decimals)
+      parseUnits("100000", config.tokens.usdt.decimals)
     ));
     ({ cToken: cEthToken, token: wEthToken } = await setupToken(
       config.tokens.wEth,
@@ -95,11 +107,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
       config.morphoCompound,
       owner
     );
-    lens = await ethers.getContractAt(
-      require("../../abis/Lens.json"),
-      config.lens,
-      owner
-    );
+    lens = MorphoCompoundLens__factory.connect(config.lens, owner);
     fetcher = {
       fetchUsers: async () => {
         const borrowerAddress = await borrower.getAddress();
@@ -118,7 +126,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
       liquidator,
       morpho,
       lens,
-      oracle,
+      oracle as unknown as Contract,
       flashLiquidator,
       { profitableThresholdUSD: parseUnits("10") }
     );
@@ -210,13 +218,13 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-  it("Should return correct params for a liquidable user with a non collateral token supplied (FEI)", async () => {
+  it("Should return correct params for a liquidable user with a non collateral token supplied (USDT)", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
 
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
 
-    const feiToSupply = parseUnits("1000");
+    const usdtToSupply = parseUnits("1000");
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
@@ -225,13 +233,13 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         toSupply
       );
 
-    await feiToken.connect(borrower).approve(morpho.address, feiToSupply);
+    await usdtToken.connect(borrower).approve(morpho.address, usdtToSupply);
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
-        cFeiToken.address,
+        cUsdtToken.address,
         borrowerAddress,
-        feiToSupply
+        usdtToSupply
       );
 
     // price is 1:1, just have to take care of decimals
@@ -260,7 +268,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     const params = await bot.getUserLiquidationParams(userToLiquidate!.address);
 
     expect(params.collateralMarket.market.toLowerCase()).eq(
-      cFeiToken.address.toLowerCase()
+      cUsdtToken.address.toLowerCase()
     );
     const path = bot.getPath(
       params.debtMarket.market,
@@ -268,10 +276,10 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     );
     const expectedPath = ethers.utils.solidityPack(
       ["address", "uint24", "address"],
-      [usdcToken.address, config.swapFees.stable, feiToken.address]
+      [usdcToken.address, config.swapFees.stable, usdtToken.address]
     );
     expect(path).to.be.eq(expectedPath);
-    const collateralBalanceBefore = await feiToken.balanceOf(
+    const collateralBalanceBefore = await usdtToken.balanceOf(
       flashLiquidator.address
     );
     expect(
@@ -287,7 +295,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         )
     ).to.emit(flashLiquidator, "Liquidated");
 
-    const collateralBalanceAfter = await feiToken.balanceOf(
+    const collateralBalanceAfter = await usdtToken.balanceOf(
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;

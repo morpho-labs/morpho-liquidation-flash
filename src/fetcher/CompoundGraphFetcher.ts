@@ -9,7 +9,7 @@ export interface User {
 export type GraphReturnType<T> = { data: { data?: T; errors?: object } };
 export type GraphParams = { query: string; variables: object };
 
-export default class GraphFetcher implements Fetcher {
+export default class CompoundGraphFetcher implements Fetcher {
   static QUERY = `query GetAccounts($first: Int, $lastId: ID){
       users(
           first: $first 
@@ -30,7 +30,7 @@ export default class GraphFetcher implements Fetcher {
   ): Promise<{ hasMore: boolean; users: string[]; lastId: string }> {
     const result = await axios
       .post<GraphParams, GraphReturnType<{ users: User[] }>>(this.graphUrl, {
-        query: GraphFetcher.QUERY,
+        query: CompoundGraphFetcher.QUERY,
         variables: { lastId, first: this.batchSize },
       })
       .then((r) => {
