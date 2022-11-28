@@ -25,7 +25,7 @@ Parameters:
     Description: The Rate for a liquidation check
     Default: 15 minutes
 
-  LiquidatorContractAddress:
+  LiquidatorCompoundContractAddress:
     Type: String
     Description: The Liquidator Contract Address
 
@@ -35,7 +35,7 @@ Parameters:
 
 
 Resources:
-  LiquidationBot:
+  LiquidationBotCompound:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
@@ -58,11 +58,11 @@ Resources:
         Variables:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
-          LIQUIDATOR_ADDRESS: !Ref LiquidatorContractAddress
+          LIQUIDATOR_ADDRESS: !Ref LiquidatorCompoundContractAddress
           SECRET_NAME: PrivateKeyMainnet
           IS_COMPOUND: true
     Metadata:
-      DockerTag: nodejs14.x-v1
+      DockerTag: nodejs16.x-v1
       DockerContext: .
       Dockerfile: bot.Dockerfile
   LiquidationBotAave:
@@ -92,7 +92,7 @@ Resources:
           LIQUIDATOR_ADDRESS: !Ref LiquidatorAaveContractAddress
           SECRET_NAME: PrivateKeyMainnet
     Metadata:
-      DockerTag: nodejs14.x-v1
+      DockerTag: nodejs16.x-v1
       DockerContext: .
       Dockerfile: bot.Dockerfile
 
