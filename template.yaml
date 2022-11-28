@@ -28,10 +28,12 @@ Parameters:
   LiquidatorCompoundContractAddress:
     Type: String
     Description: The Liquidator Contract Address
+    Default: 0xe7ffcce05c17f414150bb864945a82899c013c4b
 
   LiquidatorAaveContractAddress:
     Type: String
     Description: The Liquidator Contract Address
+    Default: 0xf2dae3f4a87dd01af3455f08ed0ddf6dec0b2ba2
 
 
 Resources:
@@ -97,6 +99,9 @@ Resources:
       Dockerfile: bot.Dockerfile
 
 Outputs:
-  LiquidationBotFunction:
-    Description: "Liquidation Lambda Function ARN"
-    Value: !GetAtt LiquidationBot.Arn
+  LiquidationBotCompoundFunction:
+    Description: "Liquidation Lambda Function ARN for Morpho Compound"
+    Value: !GetAtt LiquidationBotCompound.Arn
+  LiquidationBotAaveFunction:
+    Description: "Liquidation Lambda Function ARN for Morpho Aave"
+    Value: !GetAtt LiquidationBotAave.Arn
