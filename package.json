@@ -31,11 +31,10 @@
     "@uniswap/v3-periphery": "1.4.1",
     "@uniswap/v3-sdk": "^3.9.0",
     "aws-sdk": "^2.1181.0",
+    "ethers": "^5.7.2",
     "axios": "^0.27.2",
     "hardhat": "^2.9.6",
-    "lodash": "^4.17.21",
-    "serverless": "^3.21.0",
-    "slot20": "^0.0.3"
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
@@ -59,10 +58,10 @@
     "eslint-plugin-prettier": "^3.4.0",
     "eslint-plugin-promise": "^5.1.0",
     "ethereum-waffle": "^3.0.0",
-    "ethers": "^5.6.9",
     "hardhat-gas-reporter": "^1.0.8",
     "prettier": "^2.3.2",
     "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "slot20": "^0.0.3",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.7.16",
     "ts-node": "^10.1.0",
