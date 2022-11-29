@@ -1,8 +1,12 @@
 import { Logger } from "../interfaces/logger";
 
 export default class ConsoleLog implements Logger {
-  log(sth: any) {
-    console.log(sth);
+  log(stg: any) {
+    console.log(stg);
+  }
+
+  table(stg: any) {
+    console.table(stg);
   }
 
   flush() {}

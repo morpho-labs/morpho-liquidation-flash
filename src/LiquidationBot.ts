@@ -108,10 +108,25 @@ export default class LiquidationBot {
       .sort((a, b) =>
         a.totalSupplyBalanceUSD.gt(b.totalSupplyBalanceUSD) ? -1 : 1
       );
-    this.logger.log("Debt Market");
-    this.logger.log(debtMarket);
-    this.logger.log("Collateral Market");
-    this.logger.log(collateralMarket);
+    this.logger.table({
+      user: userAddress,
+      debt: {
+        market: debtMarket.market,
+        totalBorrowBalanceUSD: formatUnits(debtMarket.totalBorrowBalanceUSD),
+        price: formatUnits(debtMarket.price),
+        totalSupplyBalanceUSD: formatUnits(debtMarket.totalSupplyBalanceUSD),
+      },
+      collateral: {
+        market: collateralMarket.market,
+        totalBorrowBalanceUSD: formatUnits(
+          collateralMarket.totalBorrowBalanceUSD
+        ),
+        price: formatUnits(collateralMarket.price),
+        totalSupplyBalanceUSD: formatUnits(
+          collateralMarket.totalSupplyBalanceUSD
+        ),
+      },
+    });
     const { toLiquidate, rewardedUSD } =
       await this.adapter.getMaxLiquidationAmount(debtMarket, collateralMarket);
     return {
