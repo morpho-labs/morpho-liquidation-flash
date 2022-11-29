@@ -61,6 +61,7 @@ Resources:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
           LIQUIDATOR_ADDRESS: !Ref LiquidatorCompoundContractAddress
+          PROFITABLE_THRESHOLD: 50 # in USD
           SECRET_NAME: PrivateKeyMainnet
           IS_COMPOUND: true
     Metadata:
@@ -90,7 +91,7 @@ Resources:
         Variables:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
-          PROFITABLE_THRESHOLD: 0.001 # is ETH
+          PROFITABLE_THRESHOLD: 50 # is USD
           LIQUIDATOR_ADDRESS: !Ref LiquidatorAaveContractAddress
           SECRET_NAME: PrivateKeyMainnet
     Metadata:
