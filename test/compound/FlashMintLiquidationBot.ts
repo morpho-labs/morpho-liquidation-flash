@@ -275,7 +275,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
       [usdcToken.address, config.swapFees.stable, daiToken.address]
     );
     expect(path).to.be.eq(expectedPath);
-    const collateralBalanceBefore = await usdtToken.balanceOf(
+    const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(
@@ -291,7 +291,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         )
     ).to.emit(flashLiquidator, "Liquidated");
 
-    const collateralBalanceAfter = await usdtToken.balanceOf(
+    const collateralBalanceAfter = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;

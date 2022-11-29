@@ -4,7 +4,7 @@ import { parseUnits } from "ethers/lib/utils";
 import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
 import config from "../config";
 import { ERC20, IAToken__factory, ICToken__factory } from "../typechain";
-import { MorphoAaveV2 } from "@morpho-labs/morpho-ethers-contract";
+import { Comptroller, MorphoAaveV2 } from "@morpho-labs/morpho-ethers-contract";
 export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await morpho.getAllMarkets();
 
@@ -53,7 +53,7 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
     ethers.utils.parseEther("10").toHexString(),
   ]);
   const admin = await ethers.getSigner(adminAddress);
-  return { comptroller, oracle, admin };
+  return { comptroller: comptroller as unknown as Comptroller, oracle, admin };
 };
 
 export const setupAave = async (morpho: Contract, signer: Signer) => {
