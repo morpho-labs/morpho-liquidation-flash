@@ -6,11 +6,12 @@ import { setupAave, setupToken } from "../setup";
 import { parseUnits } from "ethers/lib/utils";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../../config";
+import { FlashMintLiquidatorBorrowRepayAave, IAToken } from "../../typechain";
 import {
   ERC20,
-  FlashMintLiquidatorBorrowRepayAave,
-  IAToken,
-} from "../../typechain";
+  MorphoAaveV2__factory,
+  MorphoAaveV2Lens__factory,
+} from "@morpho-labs/morpho-ethers-contract";
 describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
   let snapshotId: number;
   let morpho: Contract;
@@ -76,16 +77,8 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     ));
 
     // get Morpho contract
-    morpho = new ethers.Contract(
-      config.morphoAave,
-      require("../../abis/aave/Morpho.json"),
-      owner
-    );
-    lens = new ethers.Contract(
-      config.morphoAaveLens,
-      require("../../abis/aave/Lens.json"),
-      owner
-    );
+    morpho = MorphoAaveV2__factory.connect(config.morphoAave, owner);
+    lens = MorphoAaveV2Lens__factory.connect(config.morphoAaveLens, owner);
 
     ({ admin, oracle, lendingPool, addressesProvider } = await setupAave(
       morpho,

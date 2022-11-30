@@ -14,6 +14,5 @@ FROM public.ecr.aws/lambda/nodejs:14 as runner
 
 COPY --from=builder ./dist .
 COPY --from=builder ./node_modules ./node_modules
-COPY --from=builder ./abis ./abis
 
 CMD ["src/handlers/botHandler.handler"]

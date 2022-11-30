@@ -12,6 +12,7 @@
     "test": "yarn hardhat test",
     "run:bot": "yarn build:bot && hardhat run scripts/runBot.ts",
     "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write",
+    "deploy:contracts": "hardhat run scripts/deploy.ts --network mainnet",
     "compile": "hardhat compile",
     "build:bot": "yarn compile && tsc"
   },

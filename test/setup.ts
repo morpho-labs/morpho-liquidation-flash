@@ -3,14 +3,23 @@ import hre, { ethers } from "hardhat";
 import { parseUnits } from "ethers/lib/utils";
 import { cropHexString, getBalanceOfStorageSlot, padHexString } from "./utils";
 import config from "../config";
-import { ERC20, IAToken__factory, ICToken__factory } from "../typechain";
-import { Comptroller, MorphoAaveV2 } from "@morpho-labs/morpho-ethers-contract";
+import { IAToken__factory, ICToken__factory } from "../typechain";
+import {
+  AavePriceOracle__factory,
+  AToken__factory,
+  CompoundOracle__factory,
+  Comptroller,
+  Comptroller__factory,
+  ERC20__factory,
+  LendingPool__factory,
+  LendingPoolAddressesProvider__factory,
+  MorphoAaveV2,
+} from "@morpho-labs/morpho-ethers-contract";
 export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await morpho.getAllMarkets();
 
   const comptrollerAddress = await morpho.comptroller();
-  const comptroller = await ethers.getContractAt(
-    require("../abis/Comptroller.json"),
+  const comptroller = await Comptroller__factory.connect(
     comptrollerAddress,
     signer
   );
@@ -19,10 +28,8 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
   const oracle = await Oracle.deploy();
   await oracle.deployed();
 
-  const realOracle = new Contract(
-    // @ts-ignore
+  const realOracle = CompoundOracle__factory.connect(
     await comptroller.oracle(),
-    require("../abis/Oracle.json"),
     signer
   );
   await Promise.all(
@@ -59,13 +66,11 @@ export const setupCompound = async (morpho: Contract, signer: Signer) => {
 export const setupAave = async (morpho: Contract, signer: Signer) => {
   const markets: string[] = await (morpho as MorphoAaveV2).getMarketsCreated();
 
-  const addressesProvider = (await ethers.getContractAt(
-    require("../abis/aave/AddressesProvider.json"),
+  const addressesProvider = LendingPoolAddressesProvider__factory.connect(
     config.addressesProvider,
     signer
-  )) as Contract;
-  const lendingPool = await ethers.getContractAt(
-    require("../abis/aave/LendingPool.json"),
+  );
+  const lendingPool = LendingPool__factory.connect(
     await addressesProvider.getLendingPool(),
     signer
   );
@@ -74,19 +79,14 @@ export const setupAave = async (morpho: Contract, signer: Signer) => {
   const oracle = await Oracle.deploy();
   await oracle.deployed();
 
-  const realOracle = new Contract(
-    // @ts-ignore
+  const realOracle = AavePriceOracle__factory.connect(
     await addressesProvider.getPriceOracle(),
-    require("../abis/OracleMock.json"),
     signer
   );
   await Promise.all(
     markets.map(async (marketAddress) => {
-      const aToken = new Contract(
-        marketAddress,
-        require("../abis/AToken.json"),
-        signer
-      );
+      const aToken = AToken__factory.connect(marketAddress, signer);
+
       const underlying = await aToken.UNDERLYING_ASSET_ADDRESS();
       await oracle.setAssetPrice(
         underlying,
@@ -95,7 +95,6 @@ export const setupAave = async (morpho: Contract, signer: Signer) => {
     })
   );
 
-  // @ts-ignore
   const adminAddress = await addressesProvider.owner();
   await hre.network.provider.send("hardhat_impersonateAccount", [adminAddress]);
   await hre.network.provider.send("hardhat_setBalance", [
@@ -125,11 +124,7 @@ export const setupToken = async (
   accounts: Signer[],
   amountToFill: BigNumber
 ) => {
-  const token = (await ethers.getContractAt(
-    require("../abis/ERC20.json"),
-    config.address,
-    owner
-  )) as unknown as ERC20;
+  const token = ERC20__factory.connect(config.address, owner);
   await Promise.all(
     accounts.map(async (acc) => {
       const balanceOfUserStorageSlot = getBalanceOfStorageSlot(

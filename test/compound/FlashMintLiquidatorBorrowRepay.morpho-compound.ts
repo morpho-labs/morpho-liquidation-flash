@@ -11,6 +11,8 @@ import { FlashMintLiquidatorBorrowRepayCompound } from "../../typechain";
 import {
   Comptroller,
   MorphoCompound,
+  MorphoCompound__factory,
+  MorphoCompoundLens__factory,
 } from "@morpho-labs/morpho-ethers-contract";
 
 describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
@@ -81,16 +83,8 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho Compound", () => {
       parseUnits("100000", config.tokens.wEth.decimals)
     ));
     // get Morpho contract
-    morpho = (await ethers.getContractAt(
-      require("../../abis/Morpho.json"),
-      config.morphoCompound,
-      owner
-    )) as unknown as MorphoCompound;
-    lens = (await ethers.getContractAt(
-      require("../../abis/Lens.json"),
-      config.lens,
-      owner
-    )) as unknown as MorphoCompoundLens;
+    morpho = MorphoCompound__factory.connect(config.morphoCompound, owner);
+    lens = MorphoCompoundLens__factory.connect(config.lens, owner);
     ({ admin, oracle, comptroller } = await setupCompound(morpho, owner));
 
     await comptroller.connect(admin)._setPriceOracle(oracle.address);

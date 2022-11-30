@@ -13,11 +13,14 @@ import NoLogger from "../../src/loggers/NoLogger";
 import {
   FlashMintLiquidatorBorrowRepayCompound,
   SimplePriceOracle,
-  ERC20,
   ICToken,
 } from "../../typechain";
 import { MorphoCompoundLens } from "@morpho-labs/morpho-ethers-contract/lib/compound/MorphoCompoundLens";
-import { MorphoCompoundLens__factory } from "@morpho-labs/morpho-ethers-contract";
+import {
+  ERC20,
+  MorphoCompound__factory,
+  MorphoCompoundLens__factory,
+} from "@morpho-labs/morpho-ethers-contract";
 import MorphoCompoundAdapter from "../../src/morpho/MorphoCompoundAdapter";
 
 describe("Test Liquidation Bot for Morpho-Compound", () => {
@@ -99,11 +102,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     ));
 
     // get Morpho contract
-    morpho = await ethers.getContractAt(
-      require("../../abis/Morpho.json"),
-      config.morphoCompound,
-      owner
-    );
+    morpho = MorphoCompound__factory.connect(config.morphoCompound, owner);
     lens = MorphoCompoundLens__factory.connect(config.lens, owner);
     fetcher = {
       fetchUsers: async () => {

@@ -11,13 +11,14 @@ import { IFetcher } from "../../src/interfaces/IFetcher";
 import NoLogger from "../../src/loggers/NoLogger";
 import tokens from "../../config/tokens";
 import {
-  ERC20,
   FlashMintLiquidatorBorrowRepayAave,
   IAToken,
   SimplePriceOracle,
 } from "../../typechain";
 import {
   AavePriceOracle,
+  ERC20,
+  MorphoAaveV2__factory,
   MorphoAaveV2Lens,
   MorphoAaveV2Lens__factory,
 } from "@morpho-labs/morpho-ethers-contract";
@@ -94,11 +95,7 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       parseUnits("100000", config.tokens.usdt.decimals)
     ));
     // get Morpho contract
-    morpho = await ethers.getContractAt(
-      require("../../abis/aave/Morpho.json"),
-      config.morphoAave,
-      owner
-    );
+    morpho = MorphoAaveV2__factory.connect(config.morphoAave, owner);
     lens = MorphoAaveV2Lens__factory.connect(config.morphoAaveLens, owner);
     fetcher = {
       fetchUsers: async () => {

@@ -1,4 +1,5 @@
 import tokens from "./tokens";
+export const AVAILABLE_PROTOCOLS = ["aave", "compound"];
 
 export default {
   liquidator: "",

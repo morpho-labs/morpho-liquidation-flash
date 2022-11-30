@@ -8,10 +8,10 @@ import { IMorphoAdapter } from "../src/morpho/Morpho.interface";
 import LiquidationBot from "../src/LiquidationBot";
 import ConsoleLog from "../src/loggers/ConsoleLog";
 import { ILiquidator__factory } from "../typechain";
+import { AVAILABLE_PROTOCOLS } from "../config";
 
 dotenv.config();
 
-const AVAILABLE_PROTOCOLS = ["aave", "compound"];
 const initializers: Record<
   string,
   (
