@@ -1,10 +1,10 @@
 # Morpho Liquidator contract
 
-This project is an advanced Liquidator contract, built on top of Morpho Compound Mainnet
+This project is an advanced Liquidator contract, built on top of Morpho Compound Mainnet and Morpho AaveV2 Mainnet.
 
 ## Flash Mint liquidator
 
-The first version of the Liquidator contract uses a MakerDAO Flash loan of DAI, a supply/borrow on Compound, and a swap on Uniswap V3.
+The first version of the Liquidator contract uses a MakerDAO Flash loan of DAI, a supply/borrow on Compound or Aave, and a swap on Uniswap V3.
 
 ## Development
 
@@ -32,16 +32,18 @@ To run a liquidation check, you just have to set the right environment variables
 - `BATCH_SIZE`: The number of parallel queries sent to the Ethereum network.
 - `PROTOCOLS`: The underlying protocols to use (comma separated list).
 - `DELAY`: The delay between two liquidations check. If not provided, the bot will run only once.
+
 Then, you can just run:
 
 ```shell
-ts-node scripts/runBot.ts
+yarn run:bot
 ```
 
 ### Remotely
 
-To deploy the liquidation bot on AWS Lambda, you have to use the AWS SAM cli, and running
+To deploy the liquidation bot on AWS Lambda, you have to use the AWS SAM cli and Docker, and then running
 
 ```shell
 sam build && sam deploy --guided
 ```
+You can customize the deployment by editing the `template.yaml` file.
