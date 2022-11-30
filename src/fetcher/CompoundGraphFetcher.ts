@@ -23,7 +23,18 @@ export default class CompoundGraphFetcher implements Fetcher {
     }
 }`;
 
-  constructor(public graphUrl: string, public batchSize = 1000) {}
+  public batchSize: number;
+
+  constructor(public graphUrl: string, batchSize?: number) {
+    if (!batchSize) {
+      const fromEnv = process.env.BATCH_SIZE;
+      if (fromEnv && !isNaN(parseInt(fromEnv))) {
+        batchSize = parseInt(fromEnv);
+      }
+      batchSize = 1000;
+    }
+    this.batchSize = batchSize;
+  }
 
   async fetchUsers(
     lastId: string = ""

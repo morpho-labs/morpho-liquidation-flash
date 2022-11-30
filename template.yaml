@@ -25,6 +25,11 @@ Parameters:
     Description: The Rate for a liquidation check
     Default: 15 minutes
 
+  BatchSize:
+    Type: String
+    Description: The Batch size for a liquidation check
+    Default: 500
+
   LiquidatorCompoundContractAddress:
     Type: String
     Description: The Liquidator Contract Address
@@ -41,6 +46,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
+      MemorySize: 2048
       Architectures:
         - x86_64
       Policies:
@@ -63,6 +69,7 @@ Resources:
           LIQUIDATOR_ADDRESS: !Ref LiquidatorCompoundContractAddress
           PROFITABLE_THRESHOLD: 50 # in USD
           SECRET_NAME: PrivateKeyMainnet
+          BATCH_SIZE: !Ref BatchSize
           IS_COMPOUND: true
     Metadata:
       DockerTag: nodejs16.x-v1
@@ -72,6 +79,7 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
+      MemorySize: 2048
       Architectures:
         - x86_64
       Policies:
@@ -94,6 +102,7 @@ Resources:
           PROFITABLE_THRESHOLD: 50 # is USD
           LIQUIDATOR_ADDRESS: !Ref LiquidatorAaveContractAddress
           SECRET_NAME: PrivateKeyMainnet
+          BATCH_SIZE: !Ref BatchSize
     Metadata:
       DockerTag: nodejs16.x-v1
       DockerContext: .

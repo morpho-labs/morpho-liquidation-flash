@@ -1,12 +1,11 @@
-import { ethers, tenderly } from "hardhat";
+import { ethers } from "hardhat";
 import config from "../config";
 import { formatUnits } from "ethers/lib/utils";
 
 async function main() {
   const [signer] = await ethers.getSigners();
   console.log("signer", signer.address);
-  await tenderly.verify(["0xf2dae3f4a87dd01af3455f08ed0ddf6dec0b2ba2"]);
-  process.exit();
+  // await tenderly.verify(["0xf2dae3f4a87dd01af3455f08ed0ddf6dec0b2ba2"]);
   const FlashMintLiquidator = await ethers.getContractFactory(
     "FlashMintLiquidatorBorrowRepay"
   );
