@@ -1,6 +1,6 @@
 import { BigNumber, getDefaultProvider, providers, Signer } from "ethers";
 import { Logger } from "./interfaces/logger";
-import { Fetcher } from "./interfaces/Fetcher";
+import { IFetcher } from "./interfaces/IFetcher";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { pow10 } from "../test/helpers";
 import stablecoins from "./constant/stablecoins";
@@ -25,7 +25,7 @@ export default class LiquidationBot {
   settings: LiquidationBotSettings = defaultSettings;
   constructor(
     public readonly logger: Logger,
-    public readonly fetcher: Fetcher,
+    public readonly fetcher: IFetcher,
     public readonly signer: Signer | undefined,
     public readonly liquidator: ILiquidator,
     public readonly adapter: IMorphoAdapter,

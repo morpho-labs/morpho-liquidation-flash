@@ -1,4 +1,4 @@
-import { Fetcher } from "../interfaces/Fetcher";
+import { IFetcher } from "../interfaces/IFetcher";
 import axios from "axios";
 
 export interface User {
@@ -9,7 +9,7 @@ export interface User {
 export type GraphReturnType<T> = { data: { data?: T; errors?: object } };
 export type GraphParams = { query: string; variables: object };
 
-export default class CompoundGraphFetcher implements Fetcher {
+export default class CompoundGraphFetcher implements IFetcher {
   static QUERY = `query GetAccounts($first: Int, $lastId: ID){
       users(
           first: $first 

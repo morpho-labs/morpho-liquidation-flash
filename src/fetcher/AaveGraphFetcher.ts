@@ -1,8 +1,8 @@
-import { Fetcher } from "../interfaces/Fetcher";
+import { IFetcher } from "../interfaces/IFetcher";
 import axios from "axios";
 import { GraphParams, GraphReturnType, User } from "./CompoundGraphFetcher";
 
-export default class AaveGraphFetcher implements Fetcher {
+export default class AaveGraphFetcher implements IFetcher {
   static QUERY = `query GetAccounts($first: Int, $lastId: ID){
       accounts(
           first: $first, 

@@ -24,12 +24,18 @@ yarn test
 
 ### Locally
 
-To run a liquidation check, you just have to set the right environement variables: `PRIVATE_KEY` and `ALCHEMY_KEY`
-and the `LIQUIDATOR_ADDRESS` which is the address of the deployed liquidator contract.  
+To run a liquidation check, you just have to set the right environment variables, extracted from the `.env.example` file:
+- `PRIVATE_KEY`: the private key of the account that will be used to send the transactions. If not provided, you'll run the bot in read only mode.
+- `ALCHEMY_KEY`: the Alchemy key to connect to the Ethereum network.
+- `LIQUIDATOR_ADDRESSES`: a comma separated list of the liquidator contract addresses to use.
+- `PROFITABLE_THRESHOLD`: the liquidation threshold to use (in USD).
+- `BATCH_SIZE`: The number of parallel queries sent to the Ethereum network.
+- `PROTOCOLS`: The underlying protocols to use (comma separated list).
+- `DELAY`: The delay between two liquidations check. If not provided, the bot will run only once.
 Then, you can just run:
 
 ```shell
-FROM_ENV=true ts-node scripts/runBot.ts
+ts-node scripts/runBot.ts
 ```
 
 ### Remotely

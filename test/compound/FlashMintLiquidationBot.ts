@@ -8,7 +8,7 @@ import { pow10 } from "../helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import config from "../../config";
 import LiquidationBot from "../../src/LiquidationBot";
-import { Fetcher } from "../../src/interfaces/Fetcher";
+import { IFetcher } from "../../src/interfaces/IFetcher";
 import NoLogger from "../../src/loggers/NoLogger";
 import {
   FlashMintLiquidatorBorrowRepayCompound,
@@ -47,7 +47,7 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
   let cCompToken: ICToken;
 
   let bot: LiquidationBot;
-  let fetcher: Fetcher;
+  let fetcher: IFetcher;
   const initialize = async () => {
     [owner, liquidator, borrower, liquidableUser] = await ethers.getSigners();
 
