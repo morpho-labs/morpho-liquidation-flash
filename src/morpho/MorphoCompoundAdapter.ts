@@ -14,6 +14,14 @@ export default class MorphoCompoundAdapter implements IMorphoAdapter {
     private oracle: SimplePriceOracle | CompoundOracle
   ) {}
 
+  public async toUsd(
+    market: string,
+    amount: BigNumber,
+    price: BigNumber
+  ): Promise<BigNumber> {
+    return WadRayMath.wadMul(amount, price);
+  }
+
   public async getMaxLiquidationAmount(
     debtMarket: {
       price: BigNumber;
@@ -74,7 +82,7 @@ export default class MorphoCompoundAdapter implements IMorphoAdapter {
     return this.lens.getAllMarkets();
   }
 
-  public async getLiquidationBonus(market: string): Promise<BigNumber> {
+  public async getLiquidationBonus(): Promise<BigNumber> {
     return MorphoCompoundAdapter.LIQUIDATION_BONUS;
   }
 }

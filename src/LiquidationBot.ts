@@ -2,7 +2,6 @@ import { BigNumber, providers } from "ethers";
 import { Logger } from "./interfaces/logger";
 import { IFetcher } from "./interfaces/IFetcher";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
-import { pow10 } from "../test/helpers";
 import stablecoins from "./constant/stablecoins";
 import { ethers } from "hardhat";
 import config from "../config";
@@ -13,6 +12,7 @@ import {
   ILiquidationHandler,
   LiquidationParams,
 } from "./LiquidationHandler/LiquidationHandler.interface";
+import { PercentMath } from "@morpho-labs/ethers-utils/lib/maths";
 
 export interface LiquidationBotSettings {
   profitableThresholdUSD: BigNumber;
@@ -195,13 +195,13 @@ export default class LiquidationBot {
     );
   }
 
-  isProfitable(toLiquidate: BigNumber, price: BigNumber) {
-    return toLiquidate
-      .mul(price)
-      .div(pow10(18))
-      .mul(7)
-      .div(100)
-      .gt(this.settings.profitableThresholdUSD);
+  async isProfitable(market: string, toLiquidate: BigNumber, price: BigNumber) {
+    const rewards = await this.adapter.getLiquidationBonus(market);
+    const usdAmount = await this.adapter.toUsd(market, toLiquidate, price);
+    return PercentMath.percentMul(
+      usdAmount,
+      rewards.sub(PercentMath.BASE_PERCENT)
+    ).gt(this.settings.profitableThresholdUSD);
   }
 
   async checkPoolLiquidity(borrowMarket: string, collateralMarket: string) {
@@ -257,22 +257,34 @@ export default class LiquidationBot {
     const liquidationsParams = await Promise.all(
       users.map((u) => this.getUserLiquidationParams(u.address))
     );
-    const toLiquidate = liquidationsParams.filter((user) =>
-      this.isProfitable(user.toLiquidate, user.debtMarket.price)
-    );
+    const toLiquidate = (
+      await Promise.all(
+        liquidationsParams.map(async (user) => {
+          if (
+            await this.isProfitable(
+              user.debtMarket.market,
+              user.toLiquidate,
+              user.debtMarket.price
+            )
+          )
+            return user;
+          return null;
+        })
+      )
+    ).filter(Boolean);
     if (toLiquidate.length > 0) {
       this.logger.log(`${toLiquidate.length} users to liquidate`);
       for (const userToLiquidate of toLiquidate) {
         const swapPath = this.getPath(
-          userToLiquidate.debtMarket.market,
-          userToLiquidate.collateralMarket.market
+          userToLiquidate!.debtMarket.market,
+          userToLiquidate!.collateralMarket.market
         );
         const liquidateParams: LiquidationParams = {
-          poolTokenBorrowed: userToLiquidate.debtMarket.market,
-          poolTokenCollateral: userToLiquidate.collateralMarket.market,
-          underlyingBorrowed: underlyings[userToLiquidate.debtMarket.market],
-          user: userToLiquidate.userAddress,
-          amount: userToLiquidate.toLiquidate,
+          poolTokenBorrowed: userToLiquidate!.debtMarket.market,
+          poolTokenCollateral: userToLiquidate!.collateralMarket.market,
+          underlyingBorrowed: underlyings[userToLiquidate!.debtMarket.market],
+          user: userToLiquidate!.userAddress,
+          amount: userToLiquidate!.toLiquidate,
           swapPath,
         };
         await this.liquidationHandler.handleLiquidation(liquidateParams);
