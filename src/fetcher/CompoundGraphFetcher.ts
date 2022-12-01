@@ -1,4 +1,4 @@
-import { Fetcher } from "../interfaces/Fetcher";
+import { IFetcher } from "../interfaces/IFetcher";
 import axios from "axios";
 
 export interface User {
@@ -6,10 +6,10 @@ export interface User {
   address: string;
   isBorrower: boolean;
 }
-type GraphReturnType<T> = { data: { data?: T; errors?: object } };
-type GraphParams = { query: string; variables: object };
+export type GraphReturnType<T> = { data: { data?: T; errors?: object } };
+export type GraphParams = { query: string; variables: object };
 
-export default class GraphFetcher implements Fetcher {
+export default class CompoundGraphFetcher implements IFetcher {
   static QUERY = `query GetAccounts($first: Int, $lastId: ID){
       users(
           first: $first 
@@ -23,14 +23,25 @@ export default class GraphFetcher implements Fetcher {
     }
 }`;
 
-  constructor(public graphUrl: string, public batchSize = 1000) {}
+  public batchSize: number;
+
+  constructor(public graphUrl: string, batchSize?: number) {
+    if (!batchSize) {
+      const fromEnv = process.env.BATCH_SIZE;
+      if (fromEnv && !isNaN(parseInt(fromEnv))) {
+        batchSize = parseInt(fromEnv);
+      }
+      batchSize = 1000;
+    }
+    this.batchSize = batchSize;
+  }
 
   async fetchUsers(
     lastId: string = ""
   ): Promise<{ hasMore: boolean; users: string[]; lastId: string }> {
     const result = await axios
       .post<GraphParams, GraphReturnType<{ users: User[] }>>(this.graphUrl, {
-        query: GraphFetcher.QUERY,
+        query: CompoundGraphFetcher.QUERY,
         variables: { lastId, first: this.batchSize },
       })
       .then((r) => {

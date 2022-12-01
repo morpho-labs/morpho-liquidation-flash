@@ -2,22 +2,34 @@
 import { expect } from "chai";
 import hre, { ethers } from "hardhat";
 import { BigNumber, Contract, Signer } from "ethers";
-import { setupCompound, setupToken } from "./setup";
-import { formatUnits, parseUnits } from "ethers/lib/utils";
-import { pow10 } from "./helpers";
+import { setupCompound, setupToken } from "../setup";
+import { parseUnits } from "ethers/lib/utils";
+import { pow10 } from "../helpers";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import config from "../config";
-import LiquidationBot from "../src/LiquidationBot";
-import { Fetcher } from "../src/interfaces/Fetcher";
-import NoLogger from "../src/loggers/NoLogger";
+import config from "../../config";
+import LiquidationBot from "../../src/LiquidationBot";
+import { IFetcher } from "../../src/interfaces/IFetcher";
+import NoLogger from "../../src/loggers/NoLogger";
+import {
+  FlashMintLiquidatorBorrowRepayCompound,
+  SimplePriceOracle,
+  ICToken,
+} from "../../typechain";
+import { MorphoCompoundLens } from "@morpho-labs/morpho-ethers-contract/lib/compound/MorphoCompoundLens";
+import {
+  ERC20,
+  MorphoCompound__factory,
+  MorphoCompoundLens__factory,
+} from "@morpho-labs/morpho-ethers-contract";
+import MorphoCompoundAdapter from "../../src/morpho/MorphoCompoundAdapter";
 
-describe("Test Liquidation Bot", () => {
+describe("Test Liquidation Bot for Morpho-Compound", () => {
   let snapshotId: number;
   let morpho: Contract;
   let comptroller: Contract;
-  let flashLiquidator: Contract;
-  let oracle: Contract;
-  let lens: Contract;
+  let flashLiquidator: FlashMintLiquidatorBorrowRepayCompound;
+  let oracle: SimplePriceOracle;
+  let lens: MorphoCompoundLens;
 
   let owner: Signer;
   let admin: SignerWithAddress; // comptroller admin
@@ -25,30 +37,30 @@ describe("Test Liquidation Bot", () => {
   let borrower: Signer;
   let liquidableUser: Signer;
 
-  let daiToken: Contract;
-  let usdcToken: Contract;
-  let feiToken: Contract;
-  let wEthToken: Contract;
-  let compToken: Contract;
+  let daiToken: ERC20;
+  let usdcToken: ERC20;
+  let usdtToken: ERC20;
+  let wEthToken: ERC20;
+  let compToken: ERC20;
 
-  let cDaiToken: Contract;
-  let cUsdcToken: Contract;
-  let cFeiToken: Contract;
-  let cEthToken: Contract;
-  let cCompToken: Contract;
+  let cDaiToken: ICToken;
+  let cUsdcToken: ICToken;
+  let cUsdtToken: ICToken;
+  let cEthToken: ICToken;
+  let cCompToken: ICToken;
 
   let bot: LiquidationBot;
-  let fetcher: Fetcher;
+  let fetcher: IFetcher;
   const initialize = async () => {
     [owner, liquidator, borrower, liquidableUser] = await ethers.getSigners();
 
     const FlashMintLiquidator = await ethers.getContractFactory(
-      "FlashMintLiquidatorBorrowRepay"
+      "FlashMintLiquidatorBorrowRepayCompound"
     );
     flashLiquidator = await FlashMintLiquidator.connect(owner).deploy(
       config.lender,
       config.univ3Router,
-      config.morpho,
+      config.morphoCompound,
       config.tokens.dai.cToken,
       config.slippageTolerance
     );
@@ -70,11 +82,11 @@ describe("Test Liquidation Bot", () => {
       [owner, liquidator, borrower, liquidableUser],
       parseUnits("1000000000", config.tokens.dai.decimals)
     ));
-    ({ token: feiToken, cToken: cFeiToken } = await setupToken(
-      config.tokens.fei,
+    ({ token: usdtToken, cToken: cUsdtToken } = await setupToken(
+      config.tokens.usdt,
       owner,
       [owner, liquidator, borrower, liquidableUser],
-      parseUnits("100000", config.tokens.fei.decimals)
+      parseUnits("100000", config.tokens.usdt.decimals)
     ));
     ({ cToken: cEthToken, token: wEthToken } = await setupToken(
       config.tokens.wEth,
@@ -90,16 +102,8 @@ describe("Test Liquidation Bot", () => {
     ));
 
     // get Morpho contract
-    morpho = await ethers.getContractAt(
-      require("../abis/Morpho.json"),
-      config.morpho,
-      owner
-    );
-    lens = await ethers.getContractAt(
-      require("../abis/Lens.json"),
-      config.lens,
-      owner
-    );
+    morpho = MorphoCompound__factory.connect(config.morphoCompound, owner);
+    lens = MorphoCompoundLens__factory.connect(config.lens, owner);
     fetcher = {
       fetchUsers: async () => {
         const borrowerAddress = await borrower.getAddress();
@@ -112,14 +116,13 @@ describe("Test Liquidation Bot", () => {
       },
     };
     ({ admin, oracle, comptroller } = await setupCompound(morpho, owner));
+    const adapter = new MorphoCompoundAdapter(lens, oracle);
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
       liquidator,
-      morpho,
-      lens,
-      oracle,
       flashLiquidator,
+      adapter,
       { profitableThresholdUSD: parseUnits("10") }
     );
     await comptroller.connect(admin)._setPriceOracle(oracle.address);
@@ -210,13 +213,13 @@ describe("Test Liquidation Bot", () => {
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
   });
-  it("Should return correct params for a liquidable user with a non collateral token supplied (FEI)", async () => {
+  it("Should return correct params for a liquidable user with a non collateral token supplied (USDT)", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("10");
 
     await daiToken.connect(borrower).approve(morpho.address, toSupply);
 
-    const feiToSupply = parseUnits("1000");
+    const usdtToSupply = parseUnits("1000", config.tokens.usdt.decimals);
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
@@ -225,13 +228,13 @@ describe("Test Liquidation Bot", () => {
         toSupply
       );
 
-    await feiToken.connect(borrower).approve(morpho.address, feiToSupply);
+    await usdtToken.connect(borrower).approve(morpho.address, usdtToSupply);
     await morpho
       .connect(borrower)
       ["supply(address,address,uint256)"](
-        cFeiToken.address,
+        cUsdtToken.address,
         borrowerAddress,
-        feiToSupply
+        usdtToSupply
       );
 
     // price is 1:1, just have to take care of decimals
@@ -260,13 +263,18 @@ describe("Test Liquidation Bot", () => {
     const params = await bot.getUserLiquidationParams(userToLiquidate!.address);
 
     expect(params.collateralMarket.market.toLowerCase()).eq(
-      cFeiToken.address.toLowerCase()
+      cDaiToken.address.toLowerCase()
     );
     const path = bot.getPath(
       params.debtMarket.market,
       params.collateralMarket.market
     );
-    const collateralBalanceBefore = await feiToken.balanceOf(
+    const expectedPath = ethers.utils.solidityPack(
+      ["address", "uint24", "address"],
+      [usdcToken.address, config.swapFees.stable, daiToken.address]
+    );
+    expect(path).to.be.eq(expectedPath);
+    const collateralBalanceBefore = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(
@@ -282,7 +290,7 @@ describe("Test Liquidation Bot", () => {
         )
     ).to.emit(flashLiquidator, "Liquidated");
 
-    const collateralBalanceAfter = await feiToken.balanceOf(
+    const collateralBalanceAfter = await daiToken.balanceOf(
       flashLiquidator.address
     );
     expect(collateralBalanceAfter.gt(collateralBalanceBefore)).to.be.true;
@@ -301,7 +309,7 @@ describe("Test Liquidation Bot", () => {
         toSupply
       );
 
-    const usdcToSupply = parseUnits("1500", 6);
+    const usdcToSupply = parseUnits("25000", 6);
     await usdcToken.connect(borrower).approve(morpho.address, usdcToSupply);
 
     await morpho
@@ -312,7 +320,7 @@ describe("Test Liquidation Bot", () => {
         usdcToSupply
       );
 
-    const wEthToSupply = parseUnits("1");
+    const wEthToSupply = parseUnits("1.5");
 
     await wEthToken.connect(borrower).approve(morpho.address, wEthToSupply);
 
@@ -351,7 +359,7 @@ describe("Test Liquidation Bot", () => {
     expect(params.collateralMarket.market.toLowerCase()).eq(
       cUsdcToken.address.toLowerCase()
     );
-    expect(params.toLiquidate.lt(toBorrow.div(pow10(12)).div(2))).to.be.true;
+
     const path = bot.getPath(
       params.debtMarket.market,
       params.collateralMarket.market
@@ -551,5 +559,8 @@ describe("Test Liquidation Bot", () => {
         path
       )
     ).to.emit(flashLiquidator, "Liquidated");
+  });
+  it("Should liquidate from from the run function", async () => {
+    expect(await bot.run()).to.emit(flashLiquidator, "Liquidated");
   });
 });

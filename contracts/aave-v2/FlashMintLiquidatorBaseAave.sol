@@ -1,25 +1,30 @@
 // SPDX-License-Identifier: GNU AGPLv3
 pragma solidity 0.8.13;
 
-import "./interface/IERC3156FlashLender.sol";
-import "./interface/IERC3156FlashBorrower.sol";
-import "./interface/IWETH.sol";
+import "../interface/IERC3156FlashLender.sol";
+import "../interface/IERC3156FlashBorrower.sol";
+import "../interface/IWETH.sol";
+import "../interface/aave-v2/aave/ILendingPoolAddressesProvider.sol";
+import "../interface/aave-v2/aave/IPriceOracleGetter.sol";
+import "../interface/aave-v2/aave/IAToken.sol";
+import "../interface/aave-v2/IMorpho.sol";
+import "../interface/aave-v2/libraries/aave/ReserveConfiguration.sol";
 
-import "@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol";
 import "@morphodao/morpho-core-v1/contracts/compound/interfaces/compound/ICompound.sol";
 
 import "@morphodao/morpho-core-v1/contracts/compound/libraries/CompoundMath.sol";
-import "./libraries/PercentageMath.sol";
+import "../libraries/PercentageMath.sol";
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
-import "./SharedLiquidator.sol";
+import "../common/SharedLiquidator.sol";
 
-abstract contract FlashMintLiquidatorBase is
+abstract contract FlashMintLiquidatorBaseAave is
     ReentrancyGuard,
     SharedLiquidator,
     IERC3156FlashBorrower
 {
     using SafeTransferLib for ERC20;
+    using ReserveConfiguration for DataTypes.ReserveConfigurationMap;
     using CompoundMath for uint256;
     using PercentageMath for uint256;
 
@@ -37,8 +42,8 @@ abstract contract FlashMintLiquidatorBase is
     struct LiquidateParams {
         ERC20 collateralUnderlying;
         ERC20 borrowedUnderlying;
-        ICToken poolTokenCollateral;
-        ICToken poolTokenBorrowed;
+        IAToken poolTokenCollateral;
+        IAToken poolTokenBorrowed;
         address liquidator;
         address borrower;
         uint256 toRepay;
@@ -68,26 +73,28 @@ abstract contract FlashMintLiquidatorBase is
 
     uint256 public constant BASIS_POINTS = 10_000;
     bytes32 public constant FLASHLOAN_CALLBACK = keccak256("ERC3156FlashBorrower.onFlashLoan");
+    uint256 public constant DAI_DECIMALS = 18;
     uint256 public slippageTolerance; // in BASIS_POINTS units
 
     IERC3156FlashLender public immutable lender;
     IMorpho public immutable morpho;
-    ICToken public immutable cDai;
+    ILendingPoolAddressesProvider public immutable addressesProvider;
+    ILendingPool public immutable lendingPool;
+    IAToken public immutable aDai;
     ERC20 public immutable dai;
-    ICToken public immutable cEth;
-    IWETH public immutable wEth;
 
     constructor(
         IERC3156FlashLender _lender,
         IMorpho _morpho,
-        ICToken _cDai
+        ILendingPoolAddressesProvider _addressesProvider,
+        IAToken _aDai
     ) SharedLiquidator() {
         lender = _lender;
         morpho = _morpho;
-        cDai = _cDai;
-        dai = ERC20(_cDai.underlying());
-        cEth = ICToken(morpho.cEth());
-        wEth = IWETH(morpho.wEth());
+        addressesProvider = _addressesProvider;
+        lendingPool = ILendingPool(_addressesProvider.getLendingPool());
+        aDai = _aDai;
+        dai = ERC20(_aDai.UNDERLYING_ASSET_ADDRESS());
     }
 
     function _liquidateInternal(LiquidateParams memory _liquidateParams)
@@ -114,16 +121,15 @@ abstract contract FlashMintLiquidatorBase is
         );
     }
 
-    function _liquidateWithFlashLoan(
-        FlashLoanParams memory _flashLoanParams,
-        uint256 _collateralFactor
-    ) internal returns (uint256 seized_) {
+    function _liquidateWithFlashLoan(FlashLoanParams memory _flashLoanParams)
+        internal
+        returns (uint256 seized_)
+    {
         bytes memory data = _encodeData(_flashLoanParams);
 
         uint256 daiToFlashLoan = _getDaiToFlashloan(
-            address(_flashLoanParams.poolTokenBorrowed),
-            _flashLoanParams.toLiquidate,
-            _collateralFactor
+            _flashLoanParams.borrowedUnderlying,
+            _flashLoanParams.toLiquidate
         );
 
         dai.safeApprove(
@@ -144,18 +150,30 @@ abstract contract FlashMintLiquidatorBase is
         emit FlashLoan(msg.sender, daiToFlashLoan);
     }
 
-    function _getDaiToFlashloan(
-        address _poolTokenToRepay,
-        uint256 _amountToRepay,
-        uint256 collateralFactor
-    ) internal view returns (uint256 amountToFlashLoan_) {
-        ICompoundOracle oracle = ICompoundOracle(IComptroller(morpho.comptroller()).oracle());
-        uint256 daiPrice = oracle.getUnderlyingPrice(address(cDai));
-        uint256 borrowedTokenPrice = oracle.getUnderlyingPrice(_poolTokenToRepay);
-        amountToFlashLoan_ =
-            (_amountToRepay.mul(borrowedTokenPrice).mul(1e18 + collateralFactor).div(daiPrice) *
-                107) /
-            100; // for rounding errors
+    function _getDaiToFlashloan(address _underlyingToRepay, uint256 _amountToRepay)
+        internal
+        view
+        returns (uint256 amountToFlashLoan_)
+    {
+        if(_underlyingToRepay == address(dai)) {
+        amountToFlashLoan_ = _amountToRepay;
+        }
+        else {
+            IPriceOracleGetter oracle = IPriceOracleGetter(addressesProvider.getPriceOracle());
+
+            (uint256 loanToValue, , , , ) = lendingPool
+                .getConfiguration(address(dai))
+                .getParamsMemory();
+            uint256 daiPrice = oracle.getAssetPrice(address(dai));
+            uint256 borrowedTokenPrice = oracle.getAssetPrice(_underlyingToRepay);
+            uint256 underlyingDecimals = ERC20(_underlyingToRepay).decimals();
+            amountToFlashLoan_ =
+                _amountToRepay * borrowedTokenPrice * 10**DAI_DECIMALS /
+                    daiPrice /
+                    10**underlyingDecimals * BASIS_POINTS /
+                loanToValue
+                + 1e18; // for rounding errors of supply/borrow on aave
+        }
     }
 
     function _encodeData(FlashLoanParams memory _flashLoanParams)
@@ -196,8 +214,6 @@ abstract contract FlashMintLiquidatorBase is
     }
 
     function _getUnderlying(address _poolToken) internal view returns (ERC20 underlying_) {
-        underlying_ = _poolToken == address(cEth)
-            ? ERC20(address(wEth))
-            : ERC20(ICToken(_poolToken).underlying());
+        underlying_ = ERC20(IAToken(_poolToken).UNDERLYING_ASSET_ADDRESS());
     }
 }

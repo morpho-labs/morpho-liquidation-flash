@@ -1,6 +1,6 @@
-import { BigNumber, Contract, providers, Signer } from "ethers";
+import { BigNumber, getDefaultProvider, providers, Signer } from "ethers";
 import { Logger } from "./interfaces/logger";
-import { Fetcher } from "./interfaces/Fetcher";
+import { IFetcher } from "./interfaces/IFetcher";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import { pow10 } from "../test/helpers";
 import stablecoins from "./constant/stablecoins";
@@ -8,6 +8,8 @@ import { ethers } from "hardhat";
 import config from "../config";
 import underlyings from "./constant/underlyings";
 import { getPoolData, UniswapPool } from "./uniswap/pools";
+import { IMorphoAdapter } from "./morpho/Morpho.interface";
+import { ILiquidator } from "../typechain";
 
 export interface LiquidationBotSettings {
   profitableThresholdUSD: BigNumber;
@@ -23,15 +25,20 @@ export default class LiquidationBot {
   settings: LiquidationBotSettings = defaultSettings;
   constructor(
     public readonly logger: Logger,
-    public readonly fetcher: Fetcher,
-    public readonly signer: Signer,
-    public readonly morpho: Contract,
-    public readonly lens: Contract,
-    public readonly oracle: Contract,
-    public readonly liquidator: Contract,
+    public readonly fetcher: IFetcher,
+    public readonly signer: Signer | undefined,
+    public readonly liquidator: ILiquidator,
+    public readonly adapter: IMorphoAdapter,
     settings: Partial<LiquidationBotSettings> = {}
   ) {
     this.settings = { ...defaultSettings, ...settings };
+  }
+
+  get provider() {
+    if (this.signer?.provider) return this.signer.provider;
+    if (process.env.ALCHEMY_KEY)
+      return new providers.AlchemyProvider("1", process.env.ALCHEMY_KEY);
+    return getDefaultProvider();
   }
 
   async computeLiquidableUsers() {
@@ -45,10 +52,7 @@ export default class LiquidationBot {
       const newLiquidatableUsers = await Promise.all(
         users.map(async (userAddress) => ({
           address: userAddress,
-          hf: (await this.lens.getUserHealthFactor(
-            userAddress,
-            []
-          )) as BigNumber,
+          hf: await this.adapter.getUserHealthFactor(userAddress),
         }))
       ).then((healthFactors) =>
         healthFactors.filter((userHf) => {
@@ -66,56 +70,65 @@ export default class LiquidationBot {
 
   async getUserLiquidationParams(userAddress: string) {
     // first fetch all user balances
-    const markets = await this.getMarkets();
+    const markets = await this.adapter.getMarkets();
+
     const balances = await Promise.all(
       markets.map(async (market) => {
-        const { totalBalance: totalSupplyBalance } =
-          (await this.lens.getCurrentSupplyBalanceInOf(
-            market,
-            userAddress
-          )) as { totalBalance: BigNumber };
-        const { totalBalance: totalBorrowBalance } =
-          (await this.lens.getCurrentBorrowBalanceInOf(
-            market,
-            userAddress
-          )) as { totalBalance: BigNumber };
-        const price: BigNumber = await this.oracle.getUnderlyingPrice(market);
+        const [
+          { totalBalance: totalSupplyBalance },
+          { totalBalance: totalBorrowBalance },
+        ] = await Promise.all([
+          this.adapter.lens.getCurrentSupplyBalanceInOf(market, userAddress),
+          this.adapter.lens.getCurrentBorrowBalanceInOf(market, userAddress),
+        ]);
+        const {
+          price,
+          balances: [totalSupplyBalanceUSD, totalBorrowBalanceUSD],
+        } = await this.adapter.normalize(market, [
+          totalSupplyBalance,
+          totalBorrowBalance,
+        ]);
+        const liquidationBonus = await this.adapter.getLiquidationBonus(market);
         return {
           market,
+          liquidationBonus,
           totalSupplyBalance,
           totalBorrowBalance,
           price,
-          totalSupplyBalanceUSD: totalSupplyBalance.mul(price).div(pow10(18)),
-          totalBorrowBalanceUSD: totalBorrowBalance.mul(price).div(pow10(18)),
+          totalSupplyBalanceUSD,
+          totalBorrowBalanceUSD,
         };
       })
     );
     const [debtMarket] = balances.sort((a, b) =>
       a.totalBorrowBalanceUSD.gt(b.totalBorrowBalanceUSD) ? -1 : 1
     );
-    const [collateralMarket] = balances.sort((a, b) =>
-      a.totalSupplyBalanceUSD.gt(b.totalSupplyBalanceUSD) ? -1 : 1
-    );
-    this.logger.log("Debt Market");
-    this.logger.log(debtMarket);
-    this.logger.log("Collateral Market");
-    this.logger.log(collateralMarket);
-    let toLiquidate = debtMarket.totalBorrowBalance.div(2);
-    if (
-      debtMarket.totalBorrowBalanceUSD
-        .mul(107) // Compound rewards
-        .div(100)
-        .gt(collateralMarket.totalSupplyBalanceUSD)
-    )
-      // the collateral cannot cover the debt
-      toLiquidate = collateralMarket.totalSupplyBalanceUSD
-        .mul(pow10(20))
-        .div(107) // Compound rewards
-        .div(debtMarket.price);
-    const rewardedUSD = toLiquidate
-      .mul(debtMarket.price)
-      .mul(107)
-      .div(pow10(20));
+    const [collateralMarket] = balances
+      .filter((b) => b.liquidationBonus.gt(0))
+      .sort((a, b) =>
+        a.totalSupplyBalanceUSD.gt(b.totalSupplyBalanceUSD) ? -1 : 1
+      );
+    this.logger.table({
+      user: userAddress,
+      debt: {
+        market: debtMarket.market,
+        totalBorrowBalanceUSD: formatUnits(debtMarket.totalBorrowBalanceUSD),
+        price: formatUnits(debtMarket.price),
+        totalSupplyBalanceUSD: formatUnits(debtMarket.totalSupplyBalanceUSD),
+      },
+      collateral: {
+        market: collateralMarket.market,
+        totalBorrowBalanceUSD: formatUnits(
+          collateralMarket.totalBorrowBalanceUSD
+        ),
+        price: formatUnits(collateralMarket.price),
+        totalSupplyBalanceUSD: formatUnits(
+          collateralMarket.totalSupplyBalanceUSD
+        ),
+      },
+    });
+    const { toLiquidate, rewardedUSD } =
+      await this.adapter.getMaxLiquidationAmount(debtMarket, collateralMarket);
     return {
       collateralMarket,
       debtMarket,
@@ -123,12 +136,6 @@ export default class LiquidationBot {
       rewardedUSD,
       userAddress,
     };
-  }
-
-  async getMarkets() {
-    if (this.markets.length === 0)
-      this.markets = await this.morpho.getAllMarkets();
-    return this.markets;
   }
 
   getPath(borrowMarket: string, collateralMarket: string) {
@@ -184,11 +191,14 @@ export default class LiquidationBot {
   }
 
   async liquidate(...args: any) {
-    const tx: providers.TransactionResponse = await this.liquidator
+    if (!this.signer) return;
+    const tx = await this.liquidator
       .connect(this.signer)
+      // @ts-ignore
       .liquidate(...args, { gasLimit: 8_000_000 })
       .catch(this.logError.bind(this));
-    this.logger.log(tx.hash);
+    if (!tx) return;
+    this.logger.log(tx);
     const receipt = await tx.wait().catch(this.logError.bind(this));
     if (receipt) this.logger.log(`Gas used: ${receipt.gasUsed.toString()}`);
   }

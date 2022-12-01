@@ -6,7 +6,6 @@ import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
-import "@tenderly/hardhat-tenderly";
 
 dotenv.config();
 const mainnetUrl = `https://eth-mainnet.alchemyapi.io/v2/${process.env.ALCHEMY_KEY}`;
@@ -19,11 +18,12 @@ const config: HardhatUserConfig = {
       forking: {
         url: mainnetUrl,
         enabled: true,
-        blockNumber: 15184961,
+        blockNumber: 16_000_000,
       },
     },
     mainnet: {
       url: mainnetUrl,
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
     },
   },
   gasReporter: {

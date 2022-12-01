@@ -30,6 +30,12 @@ jobs:
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
+      - name: Compile contracts
+        run: yarn compile
+
+      - name: Compile bot
+        run: tsc
+
       - name: Run tests
         run: yarn test
         env:

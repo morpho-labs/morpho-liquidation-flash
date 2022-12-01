@@ -2,15 +2,27 @@
   "name": "morpho-liquidation-flash",
   "version": "1.0.0",
   "main": "index.js",
+  "engines": {
+    "node": ">=14.0.0"
+  },
   "repository": "git@github.com:morpho-labs/morpho-liquidation-flash.git",
   "author": "julien <julien.thomas84@gmail.com>",
   "license": "MIT",
   "scripts": {
     "test": "yarn hardhat test",
+    "run:bot": "yarn build:bot && hardhat run scripts/runBot.ts",
     "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write",
-    "build:bot": "tsc"
+    "deploy:contracts": "hardhat run scripts/deploy.ts --network mainnet",
+    "compile": "hardhat compile",
+    "build:bot": "yarn compile && tsc"
   },
   "dependencies": {
+    "@ethersproject/abi": "^5.0.0",
+    "@ethersproject/bytes": "^5.0.0",
+    "@ethersproject/providers": "^5.0.0",
+    "@morpho-labs/ethers-multicall": "^3.0.1",
+    "@morpho-labs/ethers-utils": "^1.1.1",
+    "@morpho-labs/morpho-ethers-contract": "^1.4.0",
     "@morphodao/morpho-core-v1": "morphodao/morpho-core-v1",
     "@openzeppelin/contracts": "4.6.0",
     "@rari-capital/solmate": "6.4.0",
@@ -20,16 +32,15 @@
     "@uniswap/v3-periphery": "1.4.1",
     "@uniswap/v3-sdk": "^3.9.0",
     "aws-sdk": "^2.1181.0",
+    "ethers": "^5.7.2",
     "axios": "^0.27.2",
     "hardhat": "^2.9.6",
-    "serverless": "^3.21.0",
-    "slot20": "^0.0.3"
+    "lodash": "^4.17.21"
   },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
     "@nomiclabs/hardhat-etherscan": "^3.0.0",
     "@nomiclabs/hardhat-waffle": "^2.0.0",
-    "@tenderly/hardhat-tenderly": "^1.0.15",
     "@typechain/ethers-v5": "^7.0.1",
     "@typechain/hardhat": "^2.3.0",
     "@types/chai": "^4.2.21",
@@ -47,10 +58,10 @@
     "eslint-plugin-prettier": "^3.4.0",
     "eslint-plugin-promise": "^5.1.0",
     "ethereum-waffle": "^3.0.0",
-    "ethers": "^5.6.9",
     "hardhat-gas-reporter": "^1.0.8",
     "prettier": "^2.3.2",
     "prettier-plugin-solidity": "^1.0.0-beta.13",
+    "slot20": "^0.0.3",
     "solhint": "^3.3.6",
     "solidity-coverage": "^0.7.16",
     "ts-node": "^10.1.0",

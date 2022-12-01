@@ -1,47 +1,32 @@
-import { Contract, providers, Wallet } from "ethers";
-import config from "../../config";
-import GraphFetcher from "../fetcher/GraphFetcher";
+import { providers, Wallet } from "ethers";
 import LiquidationBot from "../LiquidationBot";
 import ConsoleLog from "../loggers/ConsoleLog";
 import { parseUnits } from "ethers/lib/utils";
 import { getPrivateKey } from "../secrets/privateKey";
+import { ILiquidator__factory } from "../../typechain";
+import initCompound from "../initializers/compound";
+import initAave from "../initializers/aave";
 
 export const handler = async () => {
   const privateKey = await getPrivateKey(!!process.env.FROM_ENV);
-
-  if (!privateKey) throw Error("No PRIVATE_KEY provided");
   const provider = new providers.AlchemyProvider(1, process.env.ALCHEMY_KEY);
 
-  const flashLiquidator = new Contract(
-    process.env.LIQUIDATOR_ADDRESS ?? config.liquidator,
-    require("../../artifacts/contracts/FlashMintLiquidatorBorrowRepay.sol/FlashMintLiquidatorBorrowRepay.json").abi,
-    provider
+  const isCompound = process.env.IS_COMPOUND;
+
+  const signer = privateKey ? new Wallet(privateKey, provider) : undefined;
+  const flashLiquidator = ILiquidator__factory.connect(
+    process.env.LIQUIDATOR_ADDRESS!,
+    provider as any
   );
-  const morpho = new Contract(
-    config.morpho,
-    require("../../artifacts/@morphodao/morpho-core-v1/contracts/compound/interfaces/IMorpho.sol/IMorpho.json").abi,
-    provider
-  );
-  const lens = new Contract(
-    config.lens,
-    require("../../abis/Lens.json"),
-    provider
-  );
-  const oracle = new Contract(
-    config.oracle,
-    require("../../abis/Oracle.json"),
-    provider
-  );
-  const signer = new Wallet(privateKey, provider);
-  const fetcher = new GraphFetcher(config.graphUrl, 500);
+  const { adapter, fetcher } = await (isCompound
+    ? initCompound(provider)
+    : initAave(provider));
   const bot = new LiquidationBot(
     new ConsoleLog(),
     fetcher,
     signer,
-    morpho,
-    lens,
-    oracle,
     flashLiquidator,
+    adapter,
     {
       profitableThresholdUSD: parseUnits(
         process.env.PROFITABLE_THRESHOLD ?? "1"

@@ -3,8 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: >
   Morpho Liquidation Bot deployed using AWS Lambda function
 
-  
-# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+
 Globals:
   Function:
     Timeout: 800
@@ -19,23 +18,35 @@ Parameters:
   PrivateKeySecretId:
     Type: String
     Description: The Private key Secret manager name
-    Default: PrivateKeyMainnet
+    Default: PrivateKeyMainnet-zAzXaF
 
   ScheduledRate:
     Type: String
     Description: The Rate for a liquidation check
     Default: 15 minutes
 
-  LiquidatorContractAddress:
+  BatchSize:
+    Type: String
+    Description: The Batch size for a liquidation check
+    Default: 500
+
+  LiquidatorCompoundContractAddress:
     Type: String
     Description: The Liquidator Contract Address
+    Default: 0xe7ffcce05c17f414150bb864945a82899c013c4b
+
+  LiquidatorAaveContractAddress:
+    Type: String
+    Description: The Liquidator Contract Address
+    Default: 0xf2dae3f4a87dd01af3455f08ed0ddf6dec0b2ba2
 
 
 Resources:
-  LiquidationBot:
+  LiquidationBotCompound:
     Type: AWS::Serverless::Function
     Properties:
       PackageType: Image
+      MemorySize: 2048
       Architectures:
         - x86_64
       Policies:
@@ -55,13 +66,52 @@ Resources:
         Variables:
           SECRET_ID: !Ref PrivateKeySecretId
           ALCHEMY_KEY: !Ref AlchemyKey
-          LIQUIDATION_BOT: !Ref LiquidatorContractAddress
+          LIQUIDATOR_ADDRESS: !Ref LiquidatorCompoundContractAddress
+          PROFITABLE_THRESHOLD: 50 # in USD
+          SECRET_NAME: PrivateKeyMainnet
+          BATCH_SIZE: !Ref BatchSize
+          IS_COMPOUND: true
     Metadata:
-      DockerTag: nodejs14.x-v1
+      DockerTag: nodejs16.x-v1
+      DockerContext: .
+      Dockerfile: bot.Dockerfile
+  LiquidationBotAave:
+    Type: AWS::Serverless::Function
+    Properties:
+      PackageType: Image
+      MemorySize: 2048
+      Architectures:
+        - x86_64
+      Policies:
+        - AWSSecretsManagerGetSecretValuePolicy:
+            SecretArn: !Sub
+              - "arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:${SecretId}"
+              - { SecretId: !Ref PrivateKeySecretId }
+      Events:
+        ScheduledEvent:
+          Type: Schedule
+          Properties:
+            Schedule: !Sub
+              - "rate(${ScheduledRate})"
+              - { ScheduledRate: !Ref ScheduledRate }
+            Enabled: True
+      Environment:
+        Variables:
+          SECRET_ID: !Ref PrivateKeySecretId
+          ALCHEMY_KEY: !Ref AlchemyKey
+          PROFITABLE_THRESHOLD: 50 # is USD
+          LIQUIDATOR_ADDRESS: !Ref LiquidatorAaveContractAddress
+          SECRET_NAME: PrivateKeyMainnet
+          BATCH_SIZE: !Ref BatchSize
+    Metadata:
+      DockerTag: nodejs16.x-v1
       DockerContext: .
       Dockerfile: bot.Dockerfile
 
 Outputs:
-  LiquidationBotFunction:
-    Description: "Liquidation Lambda Function ARN"
-    Value: !GetAtt LiquidationBot.Arn
+  LiquidationBotCompoundFunction:
+    Description: "Liquidation Lambda Function ARN for Morpho Compound"
+    Value: !GetAtt LiquidationBotCompound.Arn
+  LiquidationBotAaveFunction:
+    Description: "Liquidation Lambda Function ARN for Morpho Aave"
+    Value: !GetAtt LiquidationBotAave.Arn
