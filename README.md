@@ -47,17 +47,29 @@ To run a liquidation check, you just have to set the right environment variables
 - `PRIVATE_KEY`: the private key of the account that will be used to send the transactions. If not provided, you'll run the bot in read only mode.
     Your address must be an allowed liquidator of the flash liquidator contract. The two example addresses in the `.env.example` file are the ones of Morpho Labs.
 - `ALCHEMY_KEY`: the Alchemy key to connect to the Ethereum network.
-- `LIQUIDATOR_ADDRESSES`: a comma separated list of the liquidator contract addresses to use.
+- `LIQUIDATOR_ADDRESSES`: a comma separated list of the liquidator contract addresses to use. Only used if you use the `--flash` option.
 - `PROFITABLE_THRESHOLD`: the liquidation threshold to use (in USD).
 - `BATCH_SIZE`: The number of parallel queries sent to the Ethereum network.
 - `PROTOCOLS`: The underlying protocols to use (comma separated list).
 - `DELAY`: The delay between two liquidations check. If not provided, the bot will run only once.
 
 Then, you can just run:
-
+#### EOA Liquidation
 ```shell
 yarn run:bot
 ```
+Without the `--flash` option, the bot will use your wallet to liquidate without using any contract. In this case, you need to have
+the funds to liquidate the user. Else, the script will throw an error.
+
+#### Flash Liquidation
+```shell
+yarn run:bot --flash
+```
+In order to use flash liquidation, you have to deploy the contracts first, and then set the `LIQUIDATOR_ADDRESSES` environment variable.
+
+### Remarks
+The script can throw an error and stop execution in some case, specially if you have a blockchain provider error, if you have not enough
+funds to send any transaction, or if you have not enough funds to liquidate the user with EOA mode.
 
 ### Remotely
 

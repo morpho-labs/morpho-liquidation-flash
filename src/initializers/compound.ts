@@ -30,7 +30,7 @@ const initCompound = async (provider: providers.Provider) => {
     provider as any
   );
   const adapter = new MorphoCompoundAdapter(lens, oracle);
-  return { adapter, fetcher };
+  return { adapter, fetcher, morpho };
 };
 
 export default initCompound;

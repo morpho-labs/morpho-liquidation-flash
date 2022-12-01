@@ -9,19 +9,30 @@ import LiquidationBot from "../src/LiquidationBot";
 import ConsoleLog from "../src/loggers/ConsoleLog";
 import { ILiquidator__factory } from "../typechain";
 import { AVAILABLE_PROTOCOLS } from "../config";
+import { ILiquidationHandler } from "../src/LiquidationHandler/LiquidationHandler.interface";
+import LiquidatorHandler from "../src/LiquidationHandler/LiquidatorHandler";
+import {
+  MorphoAaveV2,
+  MorphoCompound,
+} from "@morpho-labs/morpho-ethers-contract";
+import ReadOnlyHandler from "../src/LiquidationHandler/ReadOnlyHandler";
+import EOAHandler from "../src/LiquidationHandler/EOAHandler";
 
 dotenv.config();
 
 const initializers: Record<
   string,
-  (
-    provider: providers.Provider
-  ) => Promise<{ fetcher: IFetcher; adapter: IMorphoAdapter }>
+  (provider: providers.Provider) => Promise<{
+    fetcher: IFetcher;
+    adapter: IMorphoAdapter;
+    morpho: MorphoCompound | MorphoAaveV2;
+  }>
 > = {
   aave: initAave,
   compound: initCompound,
 };
 const main = async (): Promise<any> => {
+  const useFlashLiquidator = process.argv.includes("--flash");
   const pk = process.env.PRIVATE_KEY;
   const provider = new providers.AlchemyProvider(1, process.env.ALCHEMY_KEY);
 
@@ -33,12 +44,15 @@ const main = async (): Promise<any> => {
   }
 
   // Check liquidator addresses
+
   const liquidatorAddresses = process.env.LIQUIDATOR_ADDRESSES?.split(",");
-  if (!liquidatorAddresses) throw new Error("No liquidator addresses found");
-  liquidatorAddresses.forEach((liquidatorAddress) => {
-    if (!isAddress(liquidatorAddress))
-      throw new Error(`Invalid liquidator address ${liquidatorAddress}`);
-  });
+  if (useFlashLiquidator) {
+    if (!liquidatorAddresses) throw new Error("No liquidator addresses found");
+    liquidatorAddresses.forEach((liquidatorAddress) => {
+      if (!isAddress(liquidatorAddress))
+        throw new Error(`Invalid liquidator address ${liquidatorAddress}`);
+    });
+  }
 
   // Check protocols
   const protocols = process.env.PROTOCOLS?.split(",");
@@ -47,22 +61,38 @@ const main = async (): Promise<any> => {
     if (!AVAILABLE_PROTOCOLS.includes(protocol))
       throw new Error(`Invalid protocol ${protocol}`);
   });
-  if (protocols.length !== liquidatorAddresses.length)
+  if (useFlashLiquidator && protocols.length !== liquidatorAddresses!.length)
     throw new Error(
       "Number of protocols and liquidator addresses must be the same"
     );
+  const logger = new ConsoleLog();
 
   for (let i = 0; i < protocols.length; i++) {
     const protocol = protocols[i];
-    const liquidatorAddress = liquidatorAddresses[i];
+    const { adapter, fetcher, morpho } = await initializers[protocol](provider);
+
+    let liquidationHandler: ILiquidationHandler;
+    if (useFlashLiquidator) {
+      liquidationHandler = new LiquidatorHandler(
+        ILiquidator__factory.connect(liquidatorAddresses![i], provider as any),
+        wallet!,
+        logger
+      );
+      console.log("Using flash liquidator");
+    } else if (!wallet) {
+      liquidationHandler = new ReadOnlyHandler(logger);
+      console.log("Using read only handler");
+    } else {
+      liquidationHandler = new EOAHandler(morpho, wallet, logger);
+      console.log("Using EOA handler");
+    }
     console.time(protocol);
     console.timeLog(protocol, `Starting bot initialization`);
-    const { adapter, fetcher } = await initializers[protocol](provider);
     const bot = new LiquidationBot(
-      new ConsoleLog(),
+      logger,
       fetcher,
-      wallet,
-      ILiquidator__factory.connect(liquidatorAddress, provider as any),
+      provider,
+      liquidationHandler,
       adapter,
       {
         profitableThresholdUSD: parseUnits(
