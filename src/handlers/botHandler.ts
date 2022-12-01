@@ -6,14 +6,16 @@ import { getPrivateKey } from "../secrets/privateKey";
 import { ILiquidator__factory } from "../../typechain";
 import initCompound from "../initializers/compound";
 import initAave from "../initializers/aave";
+import LiquidatorHandler from "../LiquidationHandler/LiquidatorHandler";
 
 export const handler = async () => {
   const privateKey = await getPrivateKey(!!process.env.FROM_ENV);
+  if (!privateKey) throw new Error("No private key found");
   const provider = new providers.AlchemyProvider(1, process.env.ALCHEMY_KEY);
 
   const isCompound = process.env.IS_COMPOUND;
-
-  const signer = privateKey ? new Wallet(privateKey, provider) : undefined;
+  const logger = new ConsoleLog();
+  const signer = new Wallet(privateKey, provider);
   const flashLiquidator = ILiquidator__factory.connect(
     process.env.LIQUIDATOR_ADDRESS!,
     provider as any
@@ -21,11 +23,16 @@ export const handler = async () => {
   const { adapter, fetcher } = await (isCompound
     ? initCompound(provider)
     : initAave(provider));
-  const bot = new LiquidationBot(
-    new ConsoleLog(),
-    fetcher,
-    signer,
+  const liquidationHandler = new LiquidatorHandler(
     flashLiquidator,
+    signer,
+    logger
+  );
+  const bot = new LiquidationBot(
+    logger,
+    fetcher,
+    signer.provider,
+    liquidationHandler,
     adapter,
     {
       profitableThresholdUSD: parseUnits(
