@@ -35,7 +35,7 @@ const initAave = async (provider: providers.Provider) => {
     provider as any
   );
   const adapter = new MorphoAaveAdapter(lens, oracle);
-  return { adapter, fetcher };
+  return { adapter, fetcher, morpho };
 };
 
 export default initAave;

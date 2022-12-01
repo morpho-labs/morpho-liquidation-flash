@@ -25,6 +25,11 @@ export default class MorphoAaveAdapter implements IMorphoAdapter {
     );
   }
 
+  public async toUsd(market: string, amount: BigNumber, price: BigNumber) {
+    const decimals = await this._getDecimals(await this._getUnderlying(market));
+    return amount.mul(price).div(pow10(decimals));
+  }
+
   public async getMaxLiquidationAmount(
     debtMarket: {
       market: string;

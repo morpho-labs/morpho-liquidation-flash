@@ -22,6 +22,7 @@ import {
   MorphoCompoundLens__factory,
 } from "@morpho-labs/morpho-ethers-contract";
 import MorphoCompoundAdapter from "../../src/morpho/MorphoCompoundAdapter";
+import LiquidatorHandler from "../../src/LiquidationHandler/LiquidatorHandler";
 
 describe("Test Liquidation Bot for Morpho-Compound", () => {
   let snapshotId: number;
@@ -117,13 +118,22 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     };
     ({ admin, oracle, comptroller } = await setupCompound(morpho, owner));
     const adapter = new MorphoCompoundAdapter(lens, oracle);
+
+    const handler = new LiquidatorHandler(
+      flashLiquidator,
+      liquidator,
+      new NoLogger()
+    );
+
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
-      liquidator,
-      flashLiquidator,
+      liquidator.provider!,
+      handler,
       adapter,
-      { profitableThresholdUSD: parseUnits("10") }
+      {
+        profitableThresholdUSD: parseUnits("10"),
+      }
     );
     await comptroller.connect(admin)._setPriceOracle(oracle.address);
 
@@ -378,13 +388,20 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         )
     ).to.emit(flashLiquidator, "Liquidated");
   });
+
   it("Should detect a non profitable liquidation", async () => {
     const [userToLiquidate] = await bot.computeLiquidableUsers();
     const params = await bot.getUserLiquidationParams(userToLiquidate.address);
 
-    expect(bot.isProfitable(params.toLiquidate, params.debtMarket.price)).to.be
-      .false;
+    expect(
+      await bot.isProfitable(
+        params.debtMarket.market,
+        params.toLiquidate,
+        params.debtMarket.price
+      )
+    ).to.be.false;
   });
+
   it("Should return correct params for a liquidable user with a WETH debt", async () => {
     const borrowerAddress = await borrower.getAddress();
     const toSupply = parseUnits("1500");
@@ -535,13 +552,6 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         )
     ).to.emit(flashLiquidator, "Liquidated");
   });
-  it("Should detect a non profitable liquidation", async () => {
-    const [userToLiquidate] = await bot.computeLiquidableUsers();
-    const params = await bot.getUserLiquidationParams(userToLiquidate.address);
-
-    expect(bot.isProfitable(params.toLiquidate, params.debtMarket.price)).to.be
-      .false;
-  });
   it("Should liquidate from the bot function", async () => {
     const [userToLiquidate] = await bot.computeLiquidableUsers();
     const params = await bot.getUserLiquidationParams(userToLiquidate.address);
@@ -555,7 +565,6 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         params.collateralMarket.market,
         params.userAddress,
         params.toLiquidate,
-        true,
         path
       )
     ).to.emit(flashLiquidator, "Liquidated");

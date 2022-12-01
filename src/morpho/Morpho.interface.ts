@@ -27,4 +27,10 @@ export interface IMorphoAdapter {
       liquidationBonus: BigNumber;
     }
   ) => Promise<{ toLiquidate: BigNumber; rewardedUSD: BigNumber }>;
+
+  toUsd: (
+    market: string,
+    amount: BigNumber,
+    price: BigNumber
+  ) => Promise<BigNumber>;
 }

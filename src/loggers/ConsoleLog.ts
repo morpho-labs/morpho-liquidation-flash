@@ -9,5 +9,9 @@ export default class ConsoleLog implements Logger {
     console.table(stg);
   }
 
+  error(stg: any) {
+    console.error(stg);
+  }
+
   flush() {}
 }
