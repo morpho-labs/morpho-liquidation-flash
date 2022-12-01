@@ -1,8 +1,8 @@
 import { BigNumberish } from "ethers";
 
 export interface LiquidationParams {
-  poolTokenCollateral: string;
   poolTokenBorrowed: string;
+  poolTokenCollateral: string;
   underlyingBorrowed: string;
   user: string;
   amount: BigNumberish;

@@ -22,6 +22,7 @@ import {
   MorphoCompoundLens__factory,
 } from "@morpho-labs/morpho-ethers-contract";
 import MorphoCompoundAdapter from "../../src/morpho/MorphoCompoundAdapter";
+import LiquidatorHandler from "../../src/LiquidationHandler/LiquidatorHandler";
 
 describe("Test Liquidation Bot for Morpho-Compound", () => {
   let snapshotId: number;
@@ -117,13 +118,22 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
     };
     ({ admin, oracle, comptroller } = await setupCompound(morpho, owner));
     const adapter = new MorphoCompoundAdapter(lens, oracle);
+
+    const handler = new LiquidatorHandler(
+      flashLiquidator,
+      liquidator,
+      new NoLogger()
+    );
+
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
-      liquidator,
-      flashLiquidator,
+      liquidator.provider!,
+      handler,
       adapter,
-      { profitableThresholdUSD: parseUnits("10") }
+      {
+        profitableThresholdUSD: parseUnits("0.01"),
+      }
     );
     await comptroller.connect(admin)._setPriceOracle(oracle.address);
 
@@ -555,7 +565,6 @@ describe("Test Liquidation Bot for Morpho-Compound", () => {
         params.collateralMarket.market,
         params.userAddress,
         params.toLiquidate,
-        true,
         path
       )
     ).to.emit(flashLiquidator, "Liquidated");

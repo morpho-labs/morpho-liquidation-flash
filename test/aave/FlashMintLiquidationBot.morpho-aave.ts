@@ -23,6 +23,7 @@ import {
   MorphoAaveV2Lens__factory,
 } from "@morpho-labs/morpho-ethers-contract";
 import MorphoAaveAdapter from "../../src/morpho/MorphoAaveAdapter";
+import LiquidatorHandler from "../../src/LiquidationHandler/LiquidatorHandler";
 
 describe("Test Liquidation Bot for Morpho-Aave", () => {
   let snapshotId: number;
@@ -113,11 +114,18 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       lens,
       oracle as unknown as AavePriceOracle
     );
+
+    const handler = new LiquidatorHandler(
+      flashLiquidator,
+      liquidator,
+      new NoLogger()
+    );
+
     bot = new LiquidationBot(
       new NoLogger(),
       fetcher,
-      liquidator,
-      flashLiquidator,
+      liquidator.provider!,
+      handler,
       adapter,
       {
         profitableThresholdUSD: parseUnits("0.01"),

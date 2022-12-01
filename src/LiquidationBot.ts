@@ -64,6 +64,24 @@ export default class LiquidationBot {
     return liquidableUsers;
   }
 
+  async liquidate(
+    poolTokenBorrowed: string,
+    poolTokenCollateral: string,
+    user: string,
+    amount: BigNumber,
+    swapPath: string
+  ) {
+    const liquidationParams: LiquidationParams = {
+      poolTokenBorrowed,
+      poolTokenCollateral,
+      underlyingBorrowed: underlyings[poolTokenBorrowed.toLowerCase()],
+      user,
+      amount,
+      swapPath,
+    };
+    return this.liquidationHandler.handleLiquidation(liquidationParams);
+  }
+
   async getUserLiquidationParams(userAddress: string) {
     // first fetch all user balances
     const markets = await this.adapter.getMarkets();
