@@ -14,6 +14,12 @@ The first version of the Liquidator contract uses a MakerDAO Flash loan of DAI, 
 
 ## Development
 
+Installing dependencies:
+```bash
+nvm install && nvm use && yarn
+```
+
+
 Building contracts:
 
 ```shell
