@@ -1,18 +1,10 @@
----
-name: "🐛 Bug Fix"
-about: Fix a bug or regression.
-title: ''
-labels: bug
-assignees: ''
-
----
 <!--
   😀 Wonderful!  Thank you for opening a pull request.
 
   Please fill in the information below to expedite the review
   and (hopefully) merge of your change.
 -->
-## Bug Fix Pull Request
+## Feature Pull Request
 
 ### Description of change
 
