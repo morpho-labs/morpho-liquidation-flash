@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "repository": "git@github.com:morpho-labs/morpho-liquidation-flash.git",
-  "author": "julien <julien.thomas84@gmail.com>",
+  "author": "Morpho Labs",
   "license": "MIT",
   "scripts": {
     "test": "yarn hardhat test",
