@@ -197,7 +197,9 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
       borrowerAddress,
       aDaiToken.address
     );
-    await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
+    await morpho
+      .connect(borrower)
+      .withdraw(aDaiToken.address, withdrawable.sub("1000000000000"));
 
     const daiPrice: BigNumber = await oracle.getAssetPrice(daiToken.address);
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
@@ -277,7 +279,6 @@ describe("Test Flash Mint liquidator on MakerDAO for Morpho AAVE", () => {
     await morpho
       .connect(borrower)
       .withdraw(aEthToken.address, withdrawable.sub("100000000000"));
-    console.log("withdrawable", withdrawable.toString());
     const ethPrice: BigNumber = await oracle.getAssetPrice(wEthToken.address);
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
 
