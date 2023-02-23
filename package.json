@@ -13,7 +13,7 @@
     "run:bot": "yarn build:bot && ts-node scripts/runBot.ts",
     "lint:fix": "npx prettier '**/*.{json,sol,md,ts}' --write",
     "deploy:contracts": "hardhat run scripts/deploy.ts --network mainnet",
-    "compile": "hardhat compile",
+    "compile": "yarn hardhat compile",
     "build:bot": "yarn compile && tsc"
   },
   "dependencies": {
