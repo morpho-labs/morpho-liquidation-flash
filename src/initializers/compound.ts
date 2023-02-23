@@ -10,24 +10,24 @@ import {
 import MorphoCompoundAdapter from "../morpho/MorphoCompoundAdapter";
 
 const initCompound = async (provider: providers.Provider) => {
-  const fetcher = new CompoundGraphFetcher(config.graphUrl.morphoCompound, 500);
-
-  const lens = MorphoCompoundLens__factory.connect(
-    config.lens,
-    provider as any
+  const fetcher = new CompoundGraphFetcher(
+    config.graphUrl.morphoCompound,
+    +(process.env.BATCH_SIZE ?? "500")
   );
+
+  const lens = MorphoCompoundLens__factory.connect(config.lens, provider);
   // fetch compound oracle
   const morpho = MorphoCompound__factory.connect(
     config.morphoCompound,
-    provider as any
+    provider
   );
   const comptroller = Comptroller__factory.connect(
     await morpho.comptroller(),
-    provider as any
+    provider
   );
   const oracle = CompoundOracle__factory.connect(
     await comptroller.oracle(),
-    provider as any
+    provider
   );
   const adapter = new MorphoCompoundAdapter(lens, oracle);
   return { adapter, fetcher, morpho };

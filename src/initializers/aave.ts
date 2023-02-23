@@ -11,7 +11,7 @@ import { ILendingPoolAddressesProvider__factory } from "../../typechain";
 import MorphoAaveAdapter from "../morpho/MorphoAaveAdapter";
 
 const initAave = async (provider: providers.Provider) => {
-  const fetcher = new AaveGraphFetcher(config.graphUrl.morphoAave, 500);
+  const fetcher = new AaveGraphFetcher(config.graphUrl.morphoAave, +(process.env.BATCH_SIZE ?? "500"));
 
   const lens = MorphoAaveV2Lens__factory.connect(
     config.morphoAaveLens,
