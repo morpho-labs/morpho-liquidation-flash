@@ -12,7 +12,7 @@ export default {
   protocolDataProvider: "0x057835Ad21a177dbdd3090bB1CAE03EaCF78Fc6d",
   lens: "0x930f1b46e1d081ec1524efd95752be3ece51ef67",
   univ3Router: "0xe592427a0aece92de3edee1f18e0157c05861564", // https://etherscan.io/address/0xe592427a0aece92de3edee1f18e0157c05861564
-  lender: "0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853", // https://etherscan.io/address/0x1EB4CF3A948E7D72A198fe073cCb8C7a948cD853#code
+  lender: "0x60744434d6339a6b27d73d9eda62b6f66a0a04fa", // https://etherscan.io/address/0x60744434d6339a6b27d73d9eda62b6f66a0a04fa#code
   slippageTolerance: 500, // 5%
   tokens,
   swapFees: {

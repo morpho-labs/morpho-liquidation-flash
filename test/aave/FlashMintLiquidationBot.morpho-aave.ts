@@ -157,11 +157,9 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
       borrowerAddress,
       aEthToken.address
     );
-
     await morpho
       .connect(liquidableUser)
-      .withdraw(aEthToken.address, withdrawable);
-
+      .withdraw(aEthToken.address, withdrawable.sub("1000000000000"));
     const usdcPrice: BigNumber = await oracle.getAssetPrice(usdcToken.address);
 
     await oracle.setAssetPrice(
@@ -250,13 +248,15 @@ describe("Test Liquidation Bot for Morpho-Aave", () => {
     );
     await morpho
       .connect(borrower)
-      ["borrow(address,uint256)"](aUsdtToken.address, borrowable);
+      ["borrow(address,uint256)"](aUsdtToken.address, borrowable.sub("10000"));
 
     const { withdrawable } = await lens.getUserMaxCapacitiesForAsset(
       borrowerAddress,
       aDaiToken.address
     );
-    await morpho.connect(borrower).withdraw(aDaiToken.address, withdrawable);
+    await morpho
+      .connect(borrower)
+      .withdraw(aDaiToken.address, withdrawable.sub("10000000000000"));
     const daiPrice = await oracle.getAssetPrice(daiToken.address);
     await oracle.setAssetPrice(
       daiToken.address,

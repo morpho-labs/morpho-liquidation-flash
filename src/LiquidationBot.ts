@@ -11,14 +11,17 @@ import { IMorphoAdapter } from "./morpho/Morpho.interface";
 import {
   ILiquidationHandler,
   LiquidationParams,
+  UserLiquidationParams,
 } from "./LiquidationHandler/LiquidationHandler.interface";
 import { PercentMath } from "@morpho-labs/ethers-utils/lib/maths";
 
 export interface LiquidationBotSettings {
   profitableThresholdUSD: BigNumber;
+  batchSize: number;
 }
 const defaultSettings: LiquidationBotSettings = {
   profitableThresholdUSD: parseUnits("1"),
+  batchSize: 15,
 };
 
 export default class LiquidationBot {
@@ -254,24 +257,32 @@ export default class LiquidationBot {
 
   async run() {
     const users = await this.computeLiquidableUsers();
-    const liquidationsParams = await Promise.all(
-      users.map((u) => this.getUserLiquidationParams(u.address))
-    );
-    const toLiquidate = (
-      await Promise.all(
-        liquidationsParams.map(async (user) => {
-          if (
-            await this.isProfitable(
-              user.debtMarket.market,
-              user.toLiquidate,
-              user.debtMarket.price
+    this.logger.log(`Found ${users.length} users liquidatable`);
+    // use the batch size to limit the number of users to liquidate
+    const toLiquidate: UserLiquidationParams[] = [];
+    for (let i = 0; i < users.length; i += this.settings.batchSize) {
+      const liquidationsParams = await Promise.all(
+        users
+          .slice(i, Math.min(i + this.settings.batchSize, users.length))
+          .map((u) => this.getUserLiquidationParams(u.address))
+      );
+      const batchToLiquidate = (
+        await Promise.all(
+          liquidationsParams.map(async (user) => {
+            if (
+              await this.isProfitable(
+                user.debtMarket.market,
+                user.toLiquidate,
+                user.debtMarket.price
+              )
             )
-          )
-            return user;
-          return null;
-        })
-      )
-    ).filter(Boolean);
+              return user;
+            return null;
+          })
+        )
+      ).filter(Boolean) as UserLiquidationParams[];
+      toLiquidate.push(...batchToLiquidate);
+    }
     if (toLiquidate.length > 0) {
       this.logger.log(`${toLiquidate.length} users to liquidate`);
       for (const userToLiquidate of toLiquidate) {

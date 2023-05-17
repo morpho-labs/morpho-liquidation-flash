@@ -18,7 +18,7 @@ const config: HardhatUserConfig = {
       forking: {
         url: mainnetUrl,
         enabled: true,
-        blockNumber: 16_000_000,
+        blockNumber: 16650320,
       },
     },
     mainnet: {
